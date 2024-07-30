@@ -15,7 +15,10 @@
   },
   "files": {
     "requirements.txt": {
-      "checksum": "d3e3b1946070e7631da5f4fb2035b2c3"
+      "checksum": "18c7e1913ab291e1713c9cf279d7b3f3"
+    },
+    ".DS_Store": {
+      "checksum": "ac310bf834f7fa930eec7a2f4c0bc1d1"
     },
     "LICENSE": {
       "checksum": "1ebbd3e34237af26da5dc08a4e440464"
@@ -24,7 +27,7 @@
       "checksum": "10405fcf5ae8aa4e3640fe00982bcdb9"
     },
     "app.py": {
-      "checksum": "a910de18ab56e0519fb0e64274f4f006"
+      "checksum": "5dfeeaa0aef6249c3880289854658903"
     }
   }
 }
