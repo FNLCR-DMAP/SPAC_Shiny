@@ -144,22 +144,6 @@ app_ui = ui.page_fluid(
                 )
             )
         ),
-        ui.nav("Scatterplot",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("scatter_layer", "Select a Table", choices=[], selected="Original"),
-                        ui.input_select("scatter_x", "Select X Axis", choices=[]),
-                        ui.input_select("scatter_y", "Select Y Axis", choices=[]),
-                        ui.input_checkbox("scatter_color_check", "Color by Feature", value=False),
-                        ui.div(id="main-scatter_dropdown")
-                    ),
-                    ui.column(10,
-                        ui.output_plot("spac_Scatter")
-                    )
-                )
-            )
-        )
     )
 )
 
@@ -373,7 +357,6 @@ def server(input, output, session):
             ui.update_select("bp1_layer", choices=new_choices)
             ui.update_select("bp2_layer", choices=new_choices)
             ui.update_select("hm1_layer", choices=new_choices)
-            ui.update_select("scatter_layer", choices=new_choices)
         return
     @reactive.Effect
     def update_select_input_anno_bp():
@@ -382,12 +365,7 @@ def server(input, output, session):
             ui.update_select("bp1_anno", choices=new_choices)
             ui.update_select("bp2_anno", choices=new_choices)
 
-    @reactive.Effect
-    def update_select_input_layer_scatter():
-        choices = get_scatterplot_names()
-        ui.update_select("scatter_x", choices=choices)
-        ui.update_select("scatter_y", choices=choices)
-        return
+
     @reactive.Effect
     def update_boxplot_selectize():
         selected_names=var_names.get()
@@ -548,104 +526,7 @@ def server(input, output, session):
             #return out
         #return None
 
-    @reactive.Calc
-    def get_scatterplot_names():
-        if obsm_names.get() is not None and var_names.get() is not None:
-            obsm_list = obsm_names.get()
-            var_list = var_names.get()
-            obsm_dict = {item: item for item in obsm_list}
-            features_dict = {item: item for item in var_list}
-            dict = {"Annotated Tables" : obsm_dict, "Features" : features_dict}
-
-            return dict
-        return []
     
-    @reactive.Calc
-    def get_scatterplot_coordinates_x():
-        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), layers=layers_data.get())
-        obsm = obsm_names.get()
-        features = var_names.get()
-        layer_selection = input.scatter_layer()
-        selection = input.scatter_x()
-
-        if selection in obsm:
-            coords = adata.obsm[selection]
-            x_coords = coords[:, 0]  # Extract the first column for x-coordinates
-            return x_coords
-        elif selection in features and layer_selection == "Original":
-            column_index = adata.var_names.get_loc(selection)
-            x_coords = adata.X[:, column_index]  # Extract the column corresponding to the feature
-            return x_coords
-        elif selection in features and layer_selection != "Original":
-            column_index = adata.var_names.get_loc(selection)
-            new_layer = adata.layers[layer_selection]
-            x_coords = new_layer[:, column_index]  # Extract the column corresponding to the feature
-            return x_coords
-        
-        return None
-
-    
-
-    @reactive.Calc
-    def get_scatterplot_coordinates_y():
-        adata = adata_main.get()
-        obsm = obsm_names.get()
-        features = var_names.get()
-        layer_selection = input.scatter_layer()
-        selection = input.scatter_y()
-
-        if selection in obsm:
-            coords = adata.obsm[selection]
-            y_coords = coords[:, 1]  # Extract the second column for y-coordinates
-            return y_coords
-        elif selection in features and layer_selection == "Original":
-            column_index = adata.var_names.get_loc(selection)
-            y_coords = adata.X[:, column_index]  # Extract the column corresponding to the feature
-            return y_coords
-        elif selection in features and layer_selection != "Original":
-            column_index = adata.var_names.get_loc(selection)
-            new_layer = adata.layers[layer_selection]
-            y_coords = new_layer[:, column_index]  # Extract the column corresponding to the feature
-            return y_coords
-        
-        return None
-    
-
-    @reactive.effect
-    def _():
-        btn = input.scatter_color_check()
-        if btn is True:
-            dropdown = ui.input_select("scatter_color", "Select Feature", choices=var_names.get())
-            ui.insert_ui(
-                ui.div({"id": "inserted-scatter_dropdown"}, dropdown),
-                selector="#main-scatter_dropdown",
-                where="beforeEnd",
-            )
-
-        elif btn is False:
-            ui.remove_ui("#inserted-scatter_dropdown")
-
-    @reactive.Calc
-    def get_color_values():
-        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()))
-        column_index = adata.var_names.get_loc(input.scatter_color())
-        color_values = adata.X[:, column_index]
-        return color_values
-        
-
-    
-    @output
-    @render.plot
-    def spac_Scatter():
-        x_points = get_scatterplot_coordinates_x()
-        y_points = get_scatterplot_coordinates_y()
-        btn = input.scatter_color_check()
-        if btn is False:
-            fig, ax = spac.visualization.visualize_2D_scatter(x_points,y_points)
-            return ax
-        elif btn is True:
-            fig1, ax1 = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
-            return ax1
 
     
 
