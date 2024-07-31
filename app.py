@@ -95,42 +95,7 @@ app_ui = ui.page_fluid(
                 )
             )
         ),
-        ui.nav("Anno. Vs Anno.",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("sk1_anno1", "Select Source Annotation", choices=[]),
-                        ui.input_select("sk1_anno2", "Select Target Annotation", choices=[])
-                    ),
-                    ui.column(10,
-                        output_widget("spac_Sankey")
-                    )
-                )
-            ),
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("rhm_anno1", "Select Source Annotation", choices=[], selected=[]),
-                        ui.input_select("rhm_anno2", "Select Target Annotation", choices=[], selected=[])
-                    ),
-                    ui.column(10,
-                        output_widget("spac_Relational")
-                    )
-                )
-            )
-        ),
         ui.nav("Spatial + UMAP",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("spatial_anno", "Select an Object", choices=[]),
-                        ui.input_slider("spatial_slider", "Point Size", min=2, max=10, value=3)
-                    ),
-                    ui.column(10,
-                        output_widget("spac_Spatial")
-                    )
-                )
-            ),
             ui.card(
                 ui.row(
                     ui.column(2,
@@ -358,10 +323,6 @@ def server(input, output, session):
         ui.update_select("bp2_anno", choices=choices)
         ui.update_select("h2_anno", choices=choices)
         ui.update_select("hm1_anno", choices=choices)
-        ui.update_select("sk1_anno1", choices=choices)
-        ui.update_select("sk1_anno2", choices=choices)
-        ui.update_select("rhm_anno1", choices=choices)
-        ui.update_select("rhm_anno2", choices=choices)
         ui.update_select("spatial_anno", choices=choices)
         return
 
@@ -393,13 +354,6 @@ def server(input, output, session):
         selected_names=var_names.get()
         ui.update_selectize("bp1_features", selected=selected_names)
         ui.update_selectize("bp2_features", selected=selected_names)
-        return
-    @reactive.Effect
-    def update_relational_select():
-        selected_names=obs_names.get()
-        if selected_names is not None and len(selected_names) > 1:
-            ui.update_selectize("rhm_anno1", selected=selected_names[0])
-            ui.update_selectize("rhm_anno2", selected=selected_names[1])
         return
 
     @output
@@ -502,23 +456,6 @@ def server(input, output, session):
                 return fig
         return None
 
-    @output
-    @render_widget
-    def spac_Sankey():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), layers=layers_data.get())
-        if adata is not None:
-            fig = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
-            return fig
-        return None
-
-    @output
-    @render_widget
-    def spac_Relational():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
-        if adata is not None:
-            fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
-            return fig
-        return None
 
     @output
     @render.plot
@@ -529,15 +466,6 @@ def server(input, output, session):
             return out
         return None
     
-
-    @output
-    @render_widget
-    def spac_Spatial():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get())
-        if adata is not None:
-            out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-            return out
-        return None
     
     #@output
     #@render.plot
