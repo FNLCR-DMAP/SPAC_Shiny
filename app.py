@@ -114,7 +114,7 @@ app_ui = ui.page_fluid(
                         ui.input_select("rhm_anno2", "Select Target Annotation", choices=[], selected=[])
                     ),
                     ui.column(10,
-                        output_widget("spac_Relational")
+
                     )
                 )
             )
@@ -127,7 +127,7 @@ app_ui = ui.page_fluid(
                         ui.input_slider("spatial_slider", "Point Size", min=2, max=10, value=3)
                     ),
                     ui.column(10,
-                        output_widget("spac_Spatial")
+
                     )
                 )
             ),
@@ -511,14 +511,7 @@ def server(input, output, session):
             return fig
         return None
 
-    @output
-    @render_widget
-    def spac_Relational():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
-        if adata is not None:
-            fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
-            return fig
-        return None
+
 
     @output
     @render.plot
@@ -530,14 +523,6 @@ def server(input, output, session):
         return None
     
 
-    @output
-    @render_widget
-    def spac_Spatial():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get())
-        if adata is not None:
-            out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-            return out
-        return None
     
     #@output
     #@render.plot
