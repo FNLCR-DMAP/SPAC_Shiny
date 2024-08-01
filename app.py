@@ -114,7 +114,7 @@ app_ui = ui.page_fluid(
                         ui.input_select("rhm_anno2", "Select Target Annotation", choices=[], selected=[])
                     ),
                     ui.column(10,
-                        output_widget("spac_Relational")
+                        
                     )
                 )
             )
@@ -511,14 +511,7 @@ def server(input, output, session):
             return fig
         return None
 
-    @output
-    @render_widget
-    def spac_Relational():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
-        if adata is not None:
-            fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
-            return fig
-        return None
+
 
     @output
     @render.plot
