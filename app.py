@@ -22,7 +22,7 @@ app_ui = ui.page_fluid(
         ui.nav_panel("Data Input",
                 ui.div(
                 {"style": "font-weight: bold; font-size: 30px;"},
-                ui.p("SPAC Interactive Dashboard")),
+                ui.p("SPAC Interactive Dashboard *User Example Version*")),
                 ui.input_file("input_file", "Choose a file to upload:", multiple=False),
                 ui.output_text("print_rows"),
                 ui.output_text("print_columns"),
@@ -202,20 +202,15 @@ def server(input, output, session):
     @reactive.Effect
     def adata_filter():
         print("Calling Data")
-        file_info = input.input_file()
-        if not file_info:
-            data_loaded.set(False)  # Set to False if no file is uploaded
-            return
-        else:
-            file_path = file_info[0]['datapath']
-            with open(file_path, 'rb') as file:
-                if file_path.endswith('.pickle'):
-                    adata_main.set(pickle.load(file))
-                elif file_path.endswith('.h5ad'):
-                    adata_main.set(ad.read_h5ad(file_path))
-                else:
-                    adata_main.set(ad.read(file_path))
-            data_loaded.set(True)  # Set to True if a file is successfully uploaded
+        file_path = "example.pickle"
+        with open(file_path, 'rb') as file:
+            if file_path.endswith('.pickle'):
+                adata_main.set(pickle.load(file))
+            elif file_path.endswith('.h5ad'):
+                adata_main.set(ad.read_h5ad(file_path))
+            else:
+                adata_main.set(ad.read(file_path))
+        data_loaded.set(True)  # Set to True if a file is successfully uploaded
 
 
         
