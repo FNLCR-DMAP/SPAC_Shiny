@@ -11,6 +11,21 @@ import spac.visualization
 import spac.spatial_analysis
 from sag_py_execution_time_decorator import log_execution_time
 import logging
+import cProfile
+import pstats
+import io
+
+def profile_func(func):
+    def wrapper(*args, **kwargs):
+        profiler = cProfile.Profile()
+        profiler.enable()
+        result = func(*args, **kwargs)
+        profiler.disable()
+        s = io.StringIO()
+        ps = pstats.Stats(profiler, stream=s).sort_stats('cumulative')
+        ps.print_stats(10) #10 most consumed functions
+        return result, s.getvalue()
+    return wrapper
 
 app_ui = ui.page_fluid(
 
@@ -29,7 +44,9 @@ app_ui = ui.page_fluid(
                 ui.output_text("print_obs_names"),
                 ui.output_text("print_obsm_names"),
                 ui.output_text("print_layers_names"),
-                ui.output_text("print_uns_names")
+                ui.output_text("print_uns_names"),
+                ui.input_checkbox("profile_check", "Include Profiler", False),
+                ui.output_text_verbatim("profile_results")
             
             
         ), 
@@ -48,7 +65,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_h1", "Render Plot", class_="btn-success")
                     ),
                     ui.column(10,
-                        ui.output_plot("spac_Histogram_1")
+                        ui.output_plot("spac_Histogram_1"),
+                        ui.output_text_verbatim("profile_feat_1")
                         
                     )
                 ),
@@ -62,7 +80,8 @@ app_ui = ui.page_fluid(
                             ui.input_select("bp1_layer", "Select a Table", choices=[], selected="Original"),
                             ui.input_selectize("bp1_features", "Select Features", multiple=True, choices=[], selected=[]),
                             ui.input_action_button("go_bp1", "Render Plot", class_="btn-success"),
-                            ui.output_plot("spac_Boxplot_1")
+                            ui.output_plot("spac_Boxplot_1"),
+                            ui.output_text_verbatim("boxplot_profile_1")
                         )
                     ),
                 ),
@@ -73,7 +92,8 @@ app_ui = ui.page_fluid(
                             ui.input_select("bp2_layer", "Select a Table", choices=[], selected="Original"),
                             ui.input_selectize("bp2_features", "Select Features", multiple=True, choices=[], selected=[]),
                             ui.input_action_button("go_bp2", "Render Plot", class_="btn-success"),
-                            ui.output_plot("spac_Boxplot_2")
+                            ui.output_plot("spac_Boxplot_2"),
+                            ui.output_text_verbatim("boxplot_profile_2")
                         )
                     ),
                 ),
@@ -90,7 +110,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_h2", "Render Plot", class_="btn-success"),
                     ),
                     ui.column(10,
-                        ui.output_plot("spac_Histogram_2")
+                        ui.output_plot("spac_Histogram_2"),
+                        ui.output_text_verbatim("profile_anno_1")
                     )
                 )
             )
@@ -107,7 +128,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_hm1", "Render Plot", class_="btn-success")
                     ),
                     ui.column(10,
-                        ui.output_plot("spac_Heatmap")
+                        ui.output_plot("spac_Heatmap"),
+                        ui.output_text_verbatim("profile_heatmap")
                     )
                 )
             )
@@ -121,7 +143,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_sk1", "Render Plot", class_="btn-success")
                     ),
                     ui.column(10,
-                        output_widget("spac_Sankey")
+                        output_widget("spac_Sankey"),
+                        ui.output_text_verbatim("profile_sankey")
                     )
                 )
             ),
@@ -133,7 +156,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_rhm1", "Render Plot", class_="btn-success")
                     ),
                     ui.column(10,
-                        output_widget("spac_Relational")
+                        output_widget("spac_Relational"),
+                        ui.output_text_verbatim("profile_relational")
                     )
                 )
             )
@@ -147,7 +171,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_sp1", "Render Plot", class_="btn-success")
                     ),
                     ui.column(10,
-                        output_widget("spac_Spatial")
+                        output_widget("spac_Spatial"),
+                        ui.output_text_verbatim("profile_spatial")
                     )
                 )
             )),
@@ -162,7 +187,8 @@ app_ui = ui.page_fluid(
                         ui.div(id="main-ump_table_dropdown_feat"),
                         ui.input_slider("umap_slider_1", "Point Size", min=.5, max=10, value=3),
                         ui.input_action_button("go_umap1", "Render Plot", class_="btn-success"),
-                        ui.output_plot("spac_UMAP")
+                        ui.output_plot("spac_UMAP"),
+                        ui.output_text_verbatim("profile_UMAP1")
                     ),
                     ui.column(6,
                         ui.input_radio_buttons("umap_rb2", "Choose one:", ["Annotation", "Feature"]),
@@ -172,7 +198,8 @@ app_ui = ui.page_fluid(
                         ui.div(id="main-ump_table_dropdown_feat2"),
                         ui.input_slider("umap_slider_2", "Point Size", min=.5, max=10, value=3),
                         ui.input_action_button("go_umap2", "Render Plot", class_="btn-success"),
-                        ui.output_plot("spac_UMAP2")
+                        ui.output_plot("spac_UMAP2"),
+                        ui.output_text_verbatim("profile_UMAP2")
 
 
 
@@ -194,7 +221,8 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_scatter", "Render Plot", class_="btn-success")
                     ),
                     ui.column(10,
-                        ui.output_plot("spac_Scatter")
+                        ui.output_plot("spac_Scatter"),
+                        ui.output_text_verbatim("profile_scatter")
                     )
                 )
             )
@@ -248,82 +276,97 @@ def server(input, output, session):
     layers_names = reactive.Value(None)
     var_names = reactive.Value(None)
     uns_names = reactive.Value(None)
+    profile_output_collect = reactive.Value(None)
+    profile_output_feat = reactive.Value(None)
+    profile_output_bp1 = reactive.Value(None)
+    profile_output_bp2 = reactive.Value(None)
+    profile_output_anno = reactive.Value(None)
+    profile_output_heatmap = reactive.Value(None)
+    profile_output_sankey = reactive.Value(None)
+    profile_output_relational = reactive.Value(None)
+    profile_output_UMAP1 = reactive.Value(None)
+    profile_output_UMAP2 = reactive.Value(None)
+    profile_output_spatial = reactive.Value(None)
+    profile_output_scatter = reactive.Value(None)
 
     @reactive.Effect
     def update_parts():
         print("Updating Parts")
-        adata = adata_main.get()
-        if adata is not None:
+        @profile_func
+        def profiled_update():
+            adata = adata_main.get()
+            if adata is not None:
 
-            if hasattr(adata, 'X'):
-                X_data.set(adata.X)
-            else:
-                X_data.set(None)
+                if hasattr(adata, 'X'):
+                    X_data.set(adata.X)
+                else:
+                    X_data.set(None)
 
-            if hasattr(adata, 'obs'):
-                obs_data.set(adata.obs)
+                if hasattr(adata, 'obs'):
+                    obs_data.set(adata.obs)
+                else:
+                    obs_data.set(None)
+                    
+                if hasattr(adata, 'obsm'):
+                    obsm_data.set(adata.obsm)
+                else:
+                    obsm_data.set(None)
+                    
+                if hasattr(adata, 'layers'):
+                    layers_data.set(adata.layers)
+                else:
+                    layers_data.set(None)
+                    
+                if hasattr(adata, 'var'):
+                    var_data.set(adata.var)
+                else:
+                    var_data.set(None)
+                    
+                if hasattr(adata, 'uns'):
+                    uns_data.set(adata.uns)
+                else:
+                    uns_data.set(None)
+                    
+                shape_data.set(adata.shape)
+
+                if hasattr(adata, 'obs'):
+                    obs_names.set(list(adata.obs.keys()))
+                else:
+                    obs_names.set(None)
+
+                if hasattr(adata, 'obsm'):
+                    obsm_names.set(list(adata.obsm.keys()))
+                else:
+                    obsm_names.set(None)
+
+                if hasattr(adata, 'layers'):
+                    layers_names.set(list(adata.layers.keys()))
+                else:
+                    layers_names.set(None)
+
+                if hasattr(adata, 'var'):
+                    var_names.set(list(adata.var.index.tolist()))
+                else:
+                    var_names.set(None)
+
+                if hasattr(adata, 'uns'):
+                    uns_names.set(list(adata.uns.keys()))
+                else:
+                    uns_names.set(None)
             else:
                 obs_data.set(None)
-                
-            if hasattr(adata, 'obsm'):
-                obsm_data.set(adata.obsm)
-            else:
                 obsm_data.set(None)
-                
-            if hasattr(adata, 'layers'):
-                layers_data.set(adata.layers)
-            else:
                 layers_data.set(None)
-                
-            if hasattr(adata, 'var'):
-                var_data.set(adata.var)
-            else:
                 var_data.set(None)
-                
-            if hasattr(adata, 'uns'):
-                uns_data.set(adata.uns)
-            else:
                 uns_data.set(None)
-                
-            shape_data.set(adata.shape)
-
-            if hasattr(adata, 'obs'):
-                obs_names.set(list(adata.obs.keys()))
-            else:
+                shape_data.set(None)
                 obs_names.set(None)
-
-            if hasattr(adata, 'obsm'):
-                obsm_names.set(list(adata.obsm.keys()))
-            else:
                 obsm_names.set(None)
-
-            if hasattr(adata, 'layers'):
-                layers_names.set(list(adata.layers.keys()))
-            else:
                 layers_names.set(None)
-
-            if hasattr(adata, 'var'):
-                var_names.set(list(adata.var.index.tolist()))
-            else:
                 var_names.set(None)
-
-            if hasattr(adata, 'uns'):
-                uns_names.set(list(adata.uns.keys()))
-            else:
                 uns_names.set(None)
-        else:
-            obs_data.set(None)
-            obsm_data.set(None)
-            layers_data.set(None)
-            var_data.set(None)
-            uns_data.set(None)
-            shape_data.set(None)
-            obs_names.set(None)
-            obsm_names.set(None)
-            layers_names.set(None)
-            var_names.set(None)
-            uns_names.set(None)
-
+        _, profile_result = profiled_update()
+        profile_output_collect.set(profile_result)
 
     @reactive.Calc
     @render.text
@@ -389,6 +432,13 @@ def server(input, output, session):
             return "# of Columns: " + str(shape[1])
         return 
     
+    @output
+    @render.text
+    def profile_results():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_collect.get()
 
 
     @reactive.Effect
@@ -459,26 +509,43 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_h1, ignore_none=True)
     def spac_Histogram_1():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        btn_log_x = input.h1_log_x()
-        btn_log_y = input.h1_log_y()
-        if adata is not None:
-            if input.h1_group_by_check() is not True:
-                if input.h1_layer() != "Original":
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
-                else:
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
+        @profile_func
+        def profiled_feat():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+            if adata is not None:
+                if input.h1_group_by_check() is not True:
+                    if input.h1_layer() != "Original":
+                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(input.h1_log_x(), input.h1_log_y()))
+                        return fig1
+                    else:
+                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(input.h1_log_x(), input.h1_log_y()))
+                        return fig1
+                if input.h1_group_by_check() is not False:
+                    if input.h1_layer() != "Original":
+                        btn_log_x = input.h1_log_x()
+                        if btn_log_x and input.h1_together_check():
+                            mask = adata.var[pd.DataFrame(var_data.get())].notna()
+                            layer_data = adata.layers[input.h1_layer()]
+                            feat_layer_data = layer_data[mask]
+                            if np.min(layer_data) <= 0:
+                                btn_log_x = False
+                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, input.h1_log_y()))
+                        return fig1
+                    else:
+                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(input.h1_log_x(), input.h1_log_y()))
+                        return fig1
+            return None
+        result, profile_data = profiled_feat()
+        profile_output_feat.set(profile_data)
+        return result
 
-            if input.h1_group_by_check() is not False:
-                if input.h1_layer() != "Original":
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
-                else:
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
-        return None
+    @output
+    @render.text
+    def profile_feat_1():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_feat.get()
 
     @reactive.effect
     def histogram_reactivity():
@@ -504,58 +571,92 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_bp1, ignore_none=True)
     def spac_Boxplot_1():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None and adata.var is not None:
-            if input.bp1_layer() != "Original" and input.bp1_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), layer=input.bp1_layer(), features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() == "Original" and input.bp1_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() != "Original" and input.bp1_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, layer=input.bp1_layer(), features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() == "Original" and input.bp1_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-        return None
+        @profile_func
+        def profiled_boxplot_1():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+            if adata is not None and adata.var is not None:
+                if input.bp1_layer() != "Original" and input.bp1_anno() != "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), layer=input.bp1_layer(), features=list(input.bp1_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                if input.bp1_layer() == "Original" and input.bp1_anno() != "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), features=list(input.bp1_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                if input.bp1_layer() != "Original" and input.bp1_anno() == "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, layer=input.bp1_layer(), features=list(input.bp1_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                if input.bp1_layer() == "Original" and input.bp1_anno() == "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, features=list(input.bp1_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+            return None
+        result, profile_data = profiled_boxplot_1()
+        profile_output_bp1.set(profile_data)
+        return result
+    @output
+    @render.text
+    def boxplot_profile_1():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:        
+            return profile_output_bp1.get()
 
     @output
     @render.plot
     @reactive.event(input.go_bp2, ignore_none=True)
     def spac_Boxplot_2():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None and adata.var is not None:
-            if input.bp2_layer() != "Original" and input.bp2_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), layer=input.bp2_layer(), features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() == "Original" and input.bp2_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() != "Original" and input.bp2_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, layer=input.bp2_layer(), features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() == "Original" and input.bp2_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-        return None
-
-    
+        @profile_func
+        def profiled_boxplot_2():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+            if adata is not None and adata.var is not None:
+                if input.bp2_layer() != "Original" and input.bp2_anno() != "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), layer=input.bp2_layer(), features=list(input.bp2_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                if input.bp2_layer() == "Original" and input.bp2_anno() != "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), features=list(input.bp2_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                if input.bp2_layer() != "Original" and input.bp2_anno() == "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, layer=input.bp2_layer(), features=list(input.bp2_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+                if input.bp2_layer() == "Original" and input.bp2_anno() == "No Annotation":
+                    fig,ax = spac.visualization.boxplot(adata, features=list(input.bp2_features()))
+                    return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+            return None
+        result, profile_data = profiled_boxplot_2()
+        profile_output_bp2.set(profile_data)
+        return result
+    @output
+    @render.text
+    def boxplot_profile_2():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_bp2.get()
 
     @output
     @render.plot
     @reactive.event(input.go_h2, ignore_none=True)
     def spac_Histogram_2():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None:
-            if input.h2_group_by_check() is not False:
-                fig1 = spac.visualization.histogram(adata, annotation=input.h2_anno(), group_by=input.h2_anno_1(), together=input.h2_together_check())
-                return fig1
-            else:
-                fig = spac.visualization.histogram(adata, annotation=input.h2_anno())
-                return fig
-        return None    
-    
+        @profile_func
+        def profiled_anno():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+            if adata is not None:
+                if input.h2_group_by_check() is not False:
+                    fig1 = spac.visualization.histogram(adata, annotation=input.h2_anno(), group_by=input.h2_anno_1(), together=input.h2_together_check())
+                    return fig1
+                else:
+                    fig = spac.visualization.histogram(adata, annotation=input.h2_anno())
+                    return fig
+            return None    
+        result, profile_data = profiled_anno()
+        profile_output_anno.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_anno_1():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_anno.get()
+
     @reactive.effect
     def histogram_reactivity_2():
         btn = input.h2_group_by_check()
@@ -580,26 +681,38 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_hm1, ignore_none=True)
     def spac_Heatmap():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None:
-            if input.dendogram() is not True:
-                if input.hm1_layer() != "Original":
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None)
-                    return fig
-                else:
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None)
-                    return fig
-            elif input.dendogram() is not False:
-                cluster_annotations = input.h2_anno_dendro()  
-                cluster_features = input.h2_feat_dendro()  
-                if input.hm1_layer() != "Original":
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
-                    return fig
-                else:
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
-                    return fig
+        @profile_func
+        def profiled_heatmap():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+            if adata is not None:
+                if input.dendogram() is not True:
+                    if input.hm1_layer() != "Original":
+                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None)
+                        return fig
+                    else:
+                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None)
+                        return fig
+                elif input.dendogram() is not False:
+                    cluster_annotations = input.h2_anno_dendro()  
+                    cluster_features = input.h2_feat_dendro()  
+                    if input.hm1_layer() != "Original":
+                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
+                        return fig
+                    else:
+                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
+                        return fig
 
-        return None
+            return None
+        result, profile_data = profiled_heatmap()
+        profile_output_heatmap.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_heatmap():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_heatmap.get()
 
     @reactive.effect
     def heatmap_reactivity():
@@ -625,41 +738,77 @@ def server(input, output, session):
     @render_widget
     @reactive.event(input.go_sk1, ignore_none=True)
     def spac_Sankey():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None:
-            fig = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
-            return fig
-        return None
+        @profile_func
+        def profiled_sankey():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+            if adata is not None:
+                fig = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
+                return fig
+            return None
+        result, profile_data = profiled_sankey()
+        profile_output_sankey.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_sankey():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_sankey.get()
 
     @output
     @render_widget
     @reactive.event(input.go_rhm1, ignore_none=True)
     def spac_Relational():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
-        if adata is not None:
-            fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
-            return fig
-        return None
+        @profile_func
+        def profiled_relational():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
+            if adata is not None:
+                fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
+                return fig
+            return None
+        result, profile_data = profiled_relational()
+        profile_output_relational.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_relational():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_relational.get()
 
     @output
     @render.plot
     @reactive.event(input.go_umap1, ignore_none=True)
     def spac_UMAP():
-        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
-        point_size=input.umap_slider_1()
-        if adata is not None:
-            if input.umap_rb() == "Feature":
-                if input.umap_layer() == "Original":
-                    layer = None
-                else:
-                    layer = input.umap_layer()
-                out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), feature=input.umap_rb_feat(), layer=layer, point_size=point_size)
-                return out
-            elif input.umap_rb() == "Annotation":
-                out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), annotation=input.umap_rb_anno(), point_size=point_size)
-                return out1
-        return None
-    
+        @profile_func
+        def profiled_UMAP1():
+            adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
+            point_size=input.umap_slider_1()
+            if adata is not None:
+                if input.umap_rb() == "Feature":
+                    if input.umap_layer() == "Original":
+                        layer = None
+                    else:
+                        layer = input.umap_layer()
+                    out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), feature=input.umap_rb_feat(), layer=layer, point_size=point_size)
+                    return out
+                elif input.umap_rb() == "Annotation":
+                    out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), annotation=input.umap_rb_anno(), point_size=point_size)
+                    return out1
+            return None
+        result, profile_data = profiled_UMAP1()
+        profile_output_UMAP1.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_UMAP1():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_UMAP1.get()
+
     @reactive.effect
     def umap_reactivity():
         flipper=data_loaded.get()
@@ -702,21 +851,33 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_umap2, ignore_none=True)
     def spac_UMAP2():
-        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
-        point_size_2=input.umap_slider_2()
-        if adata is not None:
-            if input.umap_rb2() == "Feature":
-                if input.umap_layer2() == "Original":
-                    layer2 = None
-                else:
-                    layer2 = input.umap_layer2()
-                out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), feature=input.umap_rb_feat2(), layer=layer2, point_size=point_size_2)
-                return out
-            elif input.umap_rb2() == "Annotation":
-                out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), annotation=input.umap_rb_anno2(), point_size=point_size_2)
-                return out1
-        return None
-    
+        @profile_func
+        def profiled_UMAP2():
+            adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
+            point_size_2=input.umap_slider_2()
+            if adata is not None:
+                if input.umap_rb2() == "Feature":
+                    if input.umap_layer2() == "Original":
+                        layer2 = None
+                    else:
+                        layer2 = input.umap_layer2()
+                    out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), feature=input.umap_rb_feat2(), layer=layer2, point_size=point_size_2)
+                    return out
+                elif input.umap_rb2() == "Annotation":
+                    out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), annotation=input.umap_rb_anno2(), point_size=point_size_2)
+                    return out1
+            return None
+        result, profile_data = profiled_UMAP2()
+        profile_output_UMAP2.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_UMAP2():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_UMAP2.get()
+        
     @reactive.effect
     def umap_reactivity2():
         flipper=data_loaded.get()
@@ -761,14 +922,26 @@ def server(input, output, session):
     @render_widget
     @reactive.event(input.go_sp1, ignore_none=True)
     def spac_Spatial():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get(), dtype=X_data.get().dtype)
-        if adata is not None:
-            out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-            out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-            out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-            return out
-        return None
-    
+        @profile_func
+        def profiled_spatial():
+            adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get(), dtype=X_data.get().dtype)
+            if adata is not None:
+                out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
+                out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
+                out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
+                return out
+            return None
+        result, profile_data = profiled_spatial()
+        profile_output_spatial.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_spatial():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_spatial.get()    
+
     #@output
     #@render.plot
     #def spac_Neighborhood():
@@ -868,19 +1041,27 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_scatter, ignore_none=True)
     def spac_Scatter():
-        x_points = get_scatterplot_coordinates_x()
-        y_points = get_scatterplot_coordinates_y()
-        btn = input.scatter_color_check()
-        if btn is False:
-            fig, ax = spac.visualization.visualize_2D_scatter(x_points,y_points)
-            return ax
-        elif btn is True:
-            fig1, ax1 = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
-            return ax1
-        
-
-    
-
+        @profile_func
+        def profiled_scatter():
+            x_points = get_scatterplot_coordinates_x()
+            y_points = get_scatterplot_coordinates_y()
+            btn = input.scatter_color_check()
+            if btn is False:
+                fig, ax = spac.visualization.visualize_2D_scatter(x_points,y_points)
+                return ax
+            elif btn is True:
+                fig1, ax1 = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
+                return ax1
+        result, profile_data = profiled_scatter()
+        profile_output_scatter.set(profile_data)
+        return result
+    @output
+    @render.text
+    def profile_scatter():
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            return profile_output_scatter.get() 
 
 app = App(app_ui, server)
 
