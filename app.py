@@ -823,6 +823,7 @@ def server(input, output, session):
                 )
 
                 ui.remove_ui("#inserted-rbdropdown_feat")
+                ui.remove_ui("#inserted-umap_table")
 
             elif btn == "Feature":
                 dropdown1 = ui.input_select("umap_rb_feat", "Select a Feature", choices=var_names.get())
