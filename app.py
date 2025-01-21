@@ -9,11 +9,11 @@ from pathlib import Path as path
 import spac
 import spac.visualization
 import spac.spatial_analysis
-from sag_py_execution_time_decorator import log_execution_time
 import logging
 import cProfile
 import pstats
 import io
+import re
 
 def profile_func(func):
     def wrapper(*args, **kwargs):
@@ -30,7 +30,7 @@ def profile_func(func):
 app_ui = ui.page_fluid(
 
 
-    ui.navset_tab_card(
+    ui.navset_tab(
         
 
     
@@ -50,7 +50,7 @@ app_ui = ui.page_fluid(
             
             
         ), 
-        ui.nav("Features",
+        ui.nav_panel("Features",
     
             ui.card(
                 ui.row(
@@ -66,12 +66,13 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         ui.output_plot("spac_Histogram_1"),
-                        ui.output_text_verbatim("profile_feat_1")
+                        ui.output_text_verbatim("profile_feat_1"),
+                        ui.output_text("runtime_feat_1")
                         
                     )
                 ),
             )),
-            ui.nav("Boxplots",
+            ui.nav_panel("Boxplots",
             ui.row(
                 ui.column(6,
                     ui.card(
@@ -81,7 +82,8 @@ app_ui = ui.page_fluid(
                             ui.input_selectize("bp1_features", "Select Features", multiple=True, choices=[], selected=[]),
                             ui.input_action_button("go_bp1", "Render Plot", class_="btn-success"),
                             ui.output_plot("spac_Boxplot_1"),
-                            ui.output_text_verbatim("boxplot_profile_1")
+                            ui.output_text_verbatim("boxplot_profile_1"),
+                            ui.output_text("runtime_bp_1")
                         )
                     ),
                 ),
@@ -93,13 +95,14 @@ app_ui = ui.page_fluid(
                             ui.input_selectize("bp2_features", "Select Features", multiple=True, choices=[], selected=[]),
                             ui.input_action_button("go_bp2", "Render Plot", class_="btn-success"),
                             ui.output_plot("spac_Boxplot_2"),
-                            ui.output_text_verbatim("boxplot_profile_2")
+                            ui.output_text_verbatim("boxplot_profile_2"),
+                            ui.output_text("runtime_bp_2")
                         )
                     ),
                 ),
             )
         ),
-        ui.nav("Annotations",
+        ui.nav_panel("Annotations",
             ui.card(
                 ui.row(
                     ui.column(2,
@@ -111,12 +114,13 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         ui.output_plot("spac_Histogram_2"),
-                        ui.output_text_verbatim("profile_anno_1")
+                        ui.output_text_verbatim("profile_anno_1"),
+                        ui.output_text("runtime_anno_1")
                     )
                 )
             )
         ),
-        ui.nav("Feat. Vs Anno.",
+        ui.nav_panel("Feat. Vs Anno.",
             ui.card(
                 ui.row(
                     ui.column(2,
@@ -129,12 +133,13 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         ui.output_plot("spac_Heatmap"),
-                        ui.output_text_verbatim("profile_heatmap")
+                        ui.output_text_verbatim("profile_heatmap"),
+                        ui.output_text("runtime_heatmap_1")
                     )
                 )
             )
         ),
-        ui.nav("Anno. Vs Anno.",
+        ui.nav_panel("Anno. Vs Anno.",
             ui.card(
                 ui.row(
                     ui.column(2,
@@ -144,7 +149,8 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         output_widget("spac_Sankey"),
-                        ui.output_text_verbatim("profile_sankey")
+                        ui.output_text_verbatim("profile_sankey"),
+                        ui.output_text("runtime_sankey_1")
                     )
                 )
             ),
@@ -157,12 +163,13 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         output_widget("spac_Relational"),
-                        ui.output_text_verbatim("profile_relational")
+                        ui.output_text_verbatim("profile_relational"),
+                        ui.output_text("runtime_relational_1")
                     )
                 )
             )
         ),
-        ui.nav("Spatial",
+        ui.nav_panel("Spatial",
             ui.card(
                 ui.row(
                     ui.column(2,
@@ -172,11 +179,12 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         output_widget("spac_Spatial"),
-                        ui.output_text_verbatim("profile_spatial")
+                        ui.output_text_verbatim("profile_spatial"),
+                        ui.output_text("runtime_spatial_1")
                     )
                 )
             )),
-        ui.nav("UMAP",    
+        ui.nav_panel("UMAP",    
             ui.card(
                 ui.row(
                     ui.column(6,
@@ -188,7 +196,8 @@ app_ui = ui.page_fluid(
                         ui.input_slider("umap_slider_1", "Point Size", min=.5, max=10, value=3),
                         ui.input_action_button("go_umap1", "Render Plot", class_="btn-success"),
                         ui.output_plot("spac_UMAP"),
-                        ui.output_text_verbatim("profile_UMAP1")
+                        ui.output_text_verbatim("profile_UMAP1"),
+                        ui.output_text("runtime_UMAP_1")
                     ),
                     ui.column(6,
                         ui.input_radio_buttons("umap_rb2", "Choose one:", ["Annotation", "Feature"]),
@@ -199,7 +208,8 @@ app_ui = ui.page_fluid(
                         ui.input_slider("umap_slider_2", "Point Size", min=.5, max=10, value=3),
                         ui.input_action_button("go_umap2", "Render Plot", class_="btn-success"),
                         ui.output_plot("spac_UMAP2"),
-                        ui.output_text_verbatim("profile_UMAP2")
+                        ui.output_text_verbatim("profile_UMAP2"),
+                        ui.output_text("runtime_UMAP_2")
 
 
 
@@ -209,7 +219,7 @@ app_ui = ui.page_fluid(
 
             )
         ),
-        ui.nav("Scatterplot",
+        ui.nav_panel("Scatterplot",
             ui.card(
                 ui.row(
                     ui.column(2,
@@ -222,7 +232,8 @@ app_ui = ui.page_fluid(
                     ),
                     ui.column(10,
                         ui.output_plot("spac_Scatter"),
-                        ui.output_text_verbatim("profile_scatter")
+                        ui.output_text_verbatim("profile_scatter"),
+                            ui.output_text("runtime_scatter_1")
                     )
                 )
             )
@@ -288,6 +299,17 @@ def server(input, output, session):
     profile_output_UMAP2 = reactive.Value(None)
     profile_output_spatial = reactive.Value(None)
     profile_output_scatter = reactive.Value(None)
+    runtimes_feat = reactive.Value(None)
+    runtimes_bp1 = reactive.Value(None)
+    runtimes_bp2 = reactive.Value(None)
+    runtimes_anno = reactive.Value(None)
+    runtimes_heatmap = reactive.Value(None)
+    runtimes_sankey = reactive.Value(None)
+    runtimes_relational = reactive.Value(None)
+    runtimes_UMAP1 = reactive.Value(None)
+    runtimes_UMAP2 = reactive.Value(None)
+    runtimes_spatial = reactive.Value(None)
+    runtimes_scatter = reactive.Value(None)
 
     @reactive.Effect
     def update_parts():
@@ -515,11 +537,11 @@ def server(input, output, session):
             if adata is not None:
                 if input.h1_group_by_check() is not True:
                     if input.h1_layer() != "Original":
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(input.h1_log_x(), input.h1_log_y()))
-                        return fig1
+                        fig1,ax,run_times = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(input.h1_log_x(), input.h1_log_y()))
                     else:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(input.h1_log_x(), input.h1_log_y()))
-                        return fig1
+                        fig1,ax,run_times = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(input.h1_log_x(), input.h1_log_y()))
+                    runtimes_feat.set(run_times)
+                    return fig1
                 if input.h1_group_by_check() is not False:
                     if input.h1_layer() != "Original":
                         btn_log_x = input.h1_log_x()
@@ -529,11 +551,11 @@ def server(input, output, session):
                             feat_layer_data = layer_data[mask]
                             if np.min(layer_data) <= 0:
                                 btn_log_x = False
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, input.h1_log_y()))
-                        return fig1
+                        fig1,ax,run_times = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, input.h1_log_y()))
                     else:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(input.h1_log_x(), input.h1_log_y()))
-                        return fig1
+                        fig1,ax,run_times = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(input.h1_log_x(), input.h1_log_y()))
+                    runtimes_feat.set(run_times)
+                    return fig1
             return None
         result, profile_data = profiled_feat()
         profile_output_feat.set(profile_data)
@@ -546,6 +568,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_feat.get()
+
+    @output
+    @render.text
+    def runtime_feat_1():
+        run_times = runtimes_feat.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @reactive.effect
     def histogram_reactivity():
@@ -576,21 +609,26 @@ def server(input, output, session):
             adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
             if adata is not None and adata.var is not None:
                 if input.bp1_layer() != "Original" and input.bp1_anno() != "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), layer=input.bp1_layer(), features=list(input.bp1_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), layer=input.bp1_layer(), features=list(input.bp1_features()))
+                    runtimes_bp1.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
                 if input.bp1_layer() == "Original" and input.bp1_anno() != "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), features=list(input.bp1_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), features=list(input.bp1_features()))
+                    runtimes_bp1.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
                 if input.bp1_layer() != "Original" and input.bp1_anno() == "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, layer=input.bp1_layer(), features=list(input.bp1_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, layer=input.bp1_layer(), features=list(input.bp1_features()))
+                    runtimes_bp1.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
                 if input.bp1_layer() == "Original" and input.bp1_anno() == "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, features=list(input.bp1_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, features=list(input.bp1_features()))
+                    runtimes_bp1.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
             return None
         result, profile_data = profiled_boxplot_1()
         profile_output_bp1.set(profile_data)
         return result
+
     @output
     @render.text
     def boxplot_profile_1():
@@ -598,6 +636,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:        
             return profile_output_bp1.get()
+
+    @output
+    @render.text
+    def runtime_bp_1():
+        run_times = runtimes_bp1.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @output
     @render.plot
@@ -608,21 +657,26 @@ def server(input, output, session):
             adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
             if adata is not None and adata.var is not None:
                 if input.bp2_layer() != "Original" and input.bp2_anno() != "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), layer=input.bp2_layer(), features=list(input.bp2_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), layer=input.bp2_layer(), features=list(input.bp2_features()))
+                    runtimes_bp2.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
                 if input.bp2_layer() == "Original" and input.bp2_anno() != "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), features=list(input.bp2_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), features=list(input.bp2_features()))
+                    runtimes_bp2.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
                 if input.bp2_layer() != "Original" and input.bp2_anno() == "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, layer=input.bp2_layer(), features=list(input.bp2_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, layer=input.bp2_layer(), features=list(input.bp2_features()))
+                    runtimes_bp2.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
                 if input.bp2_layer() == "Original" and input.bp2_anno() == "No Annotation":
-                    fig,ax = spac.visualization.boxplot(adata, features=list(input.bp2_features()))
+                    fig,ax,run_times = spac.visualization.boxplot(adata, features=list(input.bp2_features()))
+                    runtimes_bp2.set(run_times)
                     return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
             return None
         result, profile_data = profiled_boxplot_2()
         profile_output_bp2.set(profile_data)
         return result
+
     @output
     @render.text
     def boxplot_profile_2():
@@ -630,6 +684,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_bp2.get()
+
+    @output
+    @render.text
+    def runtime_bp_2():
+        run_times = runtimes_bp2.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @output
     @render.plot
@@ -640,15 +705,18 @@ def server(input, output, session):
             adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
             if adata is not None:
                 if input.h2_group_by_check() is not False:
-                    fig1 = spac.visualization.histogram(adata, annotation=input.h2_anno(), group_by=input.h2_anno_1(), together=input.h2_together_check())
+                    fig1,ax,run_times = spac.visualization.histogram(adata, annotation=input.h2_anno(), group_by=input.h2_anno_1(), together=input.h2_together_check())
+                    runtimes_anno.set(run_times)
                     return fig1
                 else:
-                    fig = spac.visualization.histogram(adata, annotation=input.h2_anno())
+                    fig,ax,run_times = spac.visualization.histogram(adata, annotation=input.h2_anno())
+                    runtimes_anno.set(run_times)
                     return fig
             return None    
         result, profile_data = profiled_anno()
         profile_output_anno.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_anno_1():
@@ -656,6 +724,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_anno.get()
+
+    @output
+    @render.text
+    def runtime_anno_1():
+        run_times = runtimes_anno.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @reactive.effect
     def histogram_reactivity_2():
@@ -687,25 +766,30 @@ def server(input, output, session):
             if adata is not None:
                 if input.dendogram() is not True:
                     if input.hm1_layer() != "Original":
-                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None)
+                        df, fig, ax, run_times = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None)
+                        runtimes_heatmap.set(run_times)
                         return fig
                     else:
-                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None)
+                        df, fig, ax, run_times = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None)
+                        runtimes_heatmap.set(run_times)
                         return fig
                 elif input.dendogram() is not False:
                     cluster_annotations = input.h2_anno_dendro()  
                     cluster_features = input.h2_feat_dendro()  
                     if input.hm1_layer() != "Original":
-                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
+                        df, fig, ax, run_times = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
+                        runtimes_heatmap.set(run_times)
                         return fig
                     else:
-                        df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
+                        df, fig, ax, run_times = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
+                        runtimes_heatmap.set(run_times)
                         return fig
 
             return None
         result, profile_data = profiled_heatmap()
         profile_output_heatmap.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_heatmap():
@@ -713,6 +797,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_heatmap.get()
+
+    @output
+    @render.text
+    def runtime_heatmap_1():
+        run_times = runtimes_heatmap.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @reactive.effect
     def heatmap_reactivity():
@@ -742,12 +837,14 @@ def server(input, output, session):
         def profiled_sankey():
             adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
             if adata is not None:
-                fig = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
+                fig,run_times = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
+                runtimes_sankey.set(run_times)
                 return fig
             return None
         result, profile_data = profiled_sankey()
         profile_output_sankey.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_sankey():
@@ -755,6 +852,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_sankey.get()
+    
+    @output
+    @render.text
+    def runtime_sankey_1():
+        run_times = runtimes_sankey.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @output
     @render_widget
@@ -764,12 +872,14 @@ def server(input, output, session):
         def profiled_relational():
             adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
             if adata is not None:
-                fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
+                fig,run_times = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
+                runtimes_relational.set(run_times)
                 return fig
             return None
         result, profile_data = profiled_relational()
         profile_output_relational.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_relational():
@@ -777,6 +887,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_relational.get()
+    
+    @output
+    @render.text
+    def runtime_relational_1():
+        run_times = runtimes_relational.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @output
     @render.plot
@@ -792,15 +913,18 @@ def server(input, output, session):
                         layer = None
                     else:
                         layer = input.umap_layer()
-                    out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), feature=input.umap_rb_feat(), layer=layer, point_size=point_size)
+                    out,ax,run_times = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), feature=input.umap_rb_feat(), layer=layer, point_size=point_size)
+                    runtimes_UMAP1.set(run_times)
                     return out
                 elif input.umap_rb() == "Annotation":
-                    out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), annotation=input.umap_rb_anno(), point_size=point_size)
+                    out1,ax,run_times = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), annotation=input.umap_rb_anno(), point_size=point_size)
+                    runtimes_UMAP1.set(run_times)
                     return out1
             return None
         result, profile_data = profiled_UMAP1()
         profile_output_UMAP1.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_UMAP1():
@@ -808,6 +932,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_UMAP1.get()
+
+    @output
+    @render.text
+    def runtime_UMAP_1():
+        run_times = runtimes_UMAP1.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     @reactive.effect
     def umap_reactivity():
@@ -862,15 +997,18 @@ def server(input, output, session):
                         layer2 = None
                     else:
                         layer2 = input.umap_layer2()
-                    out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), feature=input.umap_rb_feat2(), layer=layer2, point_size=point_size_2)
+                    out,ax,run_times = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), feature=input.umap_rb_feat2(), layer=layer2, point_size=point_size_2)
+                    runtimes_UMAP2.set(run_times)
                     return out
                 elif input.umap_rb2() == "Annotation":
-                    out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), annotation=input.umap_rb_anno2(), point_size=point_size_2)
+                    out1,ax,run_times = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), annotation=input.umap_rb_anno2(), point_size=point_size_2)
+                    runtimes_UMAP2.set(run_times)
                     return out1
             return None
         result, profile_data = profiled_UMAP2()
         profile_output_UMAP2.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_UMAP2():
@@ -878,6 +1016,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_UMAP2.get()
+    
+    @output
+    @render.text
+    def runtime_UMAP_2():
+        run_times = runtimes_UMAP2.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
         
     @reactive.effect
     def umap_reactivity2():
@@ -927,14 +1076,16 @@ def server(input, output, session):
         def profiled_spatial():
             adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get(), dtype=X_data.get().dtype)
             if adata is not None:
-                out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
+                out,run_times = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
                 out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
+                runtimes_spatial.set(run_times)
                 return out
             return None
         result, profile_data = profiled_spatial()
         profile_output_spatial.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_spatial():
@@ -942,6 +1093,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_spatial.get()    
+
+    @output
+    @render.text
+    def runtime_spatial_1():
+        run_times = runtimes_spatial.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
     #@output
     #@render.plot
@@ -966,7 +1128,7 @@ def server(input, output, session):
     
     @reactive.Calc
     def get_scatterplot_coordinates_x():
-        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), layers=layers_data.get())
+        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), layers=layers_data.get(), dtype=X_data.get().dtype)
         obsm = obsm_names.get()
         features = var_names.get()
         layer_selection = input.scatter_layer()
@@ -1048,14 +1210,17 @@ def server(input, output, session):
             y_points = get_scatterplot_coordinates_y()
             btn = input.scatter_color_check()
             if btn is False:
-                fig, ax = spac.visualization.visualize_2D_scatter(x_points,y_points)
+                fig, ax, run_times = spac.visualization.visualize_2D_scatter(x_points,y_points)
+                runtimes_scatter.set(run_times)
                 return ax
             elif btn is True:
-                fig1, ax1 = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
+                fig1, ax1, run_times = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
+                runtimes_scatter.set(run_times)
                 return ax1
         result, profile_data = profiled_scatter()
         profile_output_scatter.set(profile_data)
         return result
+
     @output
     @render.text
     def profile_scatter():
@@ -1063,7 +1228,17 @@ def server(input, output, session):
             return
         if input.profile_check() is not False:
             return profile_output_scatter.get() 
+    
+    @output
+    @render.text
+    def runtime_scatter_1():
+        run_times = runtimes_scatter.get()
+        if input.profile_check() is not True:
+            return
+        if input.profile_check() is not False:
+            if run_times:
+                return f"Runtime information:\n{run_times}"
+            return "No runtime information available."
 
 app = App(app_ui, server)
-
 
