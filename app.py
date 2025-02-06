@@ -647,26 +647,22 @@ def server(input, output, session):
             if input.h1_group_by_check() is not True:
                 if input.h1_layer() != "Original":
                     fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
                 else:
                     fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
 
             if input.h1_group_by_check() is not False:
                 if input.h1_layer() != "Original":
                     if input.h1_together_check() is  not False:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
-                        return fig1
                     else:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                        return fig1
                 else:
                     if input.h1_together_check() is  not False:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
-                        return fig1
                     else:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                        return fig1
+            fig1[1].tick_params(axis='x', rotation=90)
+            return fig1
         return None
 
     histogram_ui_initialized = reactive.Value(False)
@@ -761,10 +757,10 @@ def server(input, output, session):
         if adata is not None:
             if input.h2_group_by_check() is not False:
                 fig1 = spac.visualization.histogram(adata, annotation=input.h2_anno(), group_by=input.h2_anno_1(), together=input.h2_together_check(), multiple=input.h2_together_drop())
-                return fig1
             else:
-                fig = spac.visualization.histogram(adata, annotation=input.h2_anno())
-                return fig
+                fig1 = spac.visualization.histogram(adata, annotation=input.h2_anno())
+            fig1[1].tick_params(axis='x', rotation=45)
+            return fig1
         return None
 
     histogram2_ui_initialized = reactive.Value(False)
