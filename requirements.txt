@@ -159,7 +159,7 @@ six==1.16.0
 slicerator==1.1.0
 sniffio==1.3.1
 soupsieve==2.5
-spac @ git+https://github.com/FNLCR-DMAP/SCSAWorkflow.git@ed79d5f3608599c5c561d57a6cc6d5fbb0e38130
+spac @ git+https://github.com/FNLCR-DMAP/SCSAWorkflow.git@412b89aa8da55eadc68429732e4e277af218e2a4
 squidpy==1.2.2
 stack-data==0.6.3
 starlette==0.37.2
