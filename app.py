@@ -717,7 +717,6 @@ def server(input, output, session):
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
                     else:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-            fig = fig1[0]
             axes = fig1[1] if isinstance(fig1[1], list) else [fig1[1]]
             for ax in axes:
                 ax.tick_params(axis='x', rotation=90, labelsize=10)
@@ -843,6 +842,21 @@ def server(input, output, session):
                 together=together_flag,
                 multiple=multiple_param
             )
+            axes = fig[1]
+            if together_flag == True:
+               axes.tick_params(axis='x', rotation=90, labelsize=10)
+            else:
+                all_categories = adata.obs[input.h2_anno()].astype('category').cat.categories
+                for idx, ax in enumerate(axes):
+                    if idx != len(axes)-1:  # Upper plots
+                        ax.set_xticks(range(len(all_categories)))
+                        ax.tick_params(axis='x', labelbottom=False)
+                        ax.set_xlabel('')
+                    else:
+                        ax.set_xticks(range(len(all_categories))) #lower plot
+                        ax.set_xticklabels(all_categories, rotation=90, fontsize=10)
+                        ax.tick_params(axis='x', which='both', length=0)
+                fig[0].subplots_adjust(hspace=0.5)
             return fig
 
         return None
