@@ -55,11 +55,17 @@ app_ui = ui.page_fluid(
                             ui.div(id="main-h2_check"),
                             ui.div(id="main-h2_together_drop"),
                             ui.input_action_button("go_h2", "Render Plot", class_="btn-success"),
+                            ui.div({"style": "padding-top: 20px;"},
+                            ui.panel_conditional("input.go_h2", ui.input_action_button("adjust_fig", "Adjust Figure Size", class_="btn-info"))),
+                            ui.panel_conditional("input.adjust_fig",
+                                ui.input_slider("fig_height", "Figure Height", min=0, max=100, value=100),
+                                ui.input_slider("fig_width", "Figure Width", min=0, max=100, value=100)
+                    )
                         ),
                         ui.column(10,
                             ui.div(
                             {"style": "padding-bottom: 100px;"},
-                            ui.output_plot("spac_Histogram_2", width="100%", height="80vh")
+                            ui.output_plot("spac_Histogram_2", width=str(input.fig_width) + "%", height=str(input.fig_height) + "%")
                             )
                         )
                     )
@@ -703,26 +709,21 @@ def server(input, output, session):
             if input.h1_group_by_check() is not True:
                 if input.h1_layer() != "Original":
                     fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
                 else:
                     fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
 
             if input.h1_group_by_check() is not False:
                 if input.h1_layer() != "Original":
                     if input.h1_together_check() is  not False:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
-                        return fig1
                     else:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                        return fig1
                 else:
                     if input.h1_together_check() is  not False:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
-                        return fig1
                     else:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                        return fig1
+            return fig1
         return None
 
     histogram_ui_initialized = reactive.Value(False)
@@ -740,7 +741,7 @@ def server(input, output, session):
                 where="beforeEnd",
             )
 
-            together_check = ui.input_checkbox("h1_together_check", "Plot Together", value=False)
+            together_check = ui.input_checkbox("h1_together_check", "Plot Together", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check"}, together_check),
                 selector="#main-h1_check",
@@ -843,6 +844,7 @@ def server(input, output, session):
                 together=together_flag,
                 multiple=multiple_param
             )
+            #input.fig_height()
             return fig
 
         return None
@@ -862,7 +864,7 @@ def server(input, output, session):
                 where="beforeEnd",
             )
 
-            together_check = ui.input_checkbox("h2_together_check", "Plot Together", value=False)
+            together_check = ui.input_checkbox("h2_together_check", "Plot Together", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check-1"}, together_check),
                 selector="#main-h2_check",
