@@ -56,17 +56,20 @@ app_ui = ui.page_fluid(
                             ui.div(id="main-h2_together_drop"),
                             ui.input_action_button("go_h2", "Render Plot", class_="btn-success"),
                             ui.div({"style": "padding-top: 20px;"},
-                            ui.panel_conditional("input.go_h2", ui.input_action_button("adjust_fig", "Adjust Figure Size", class_="btn-info"))),
+                            ui.panel_conditional("input.go_h2", ui.input_checkbox("adjust_fig", "Adjust Figure Size", value=False))),
                             ui.panel_conditional("input.adjust_fig",
                                 ui.input_slider("fig_height", "Figure Height", min=0, max=100, value=100),
-                                ui.input_slider("fig_width", "Figure Width", min=0, max=100, value=100)
+                                ui.input_slider("fig_width", "Figure Width", min=0, max=80, value=80)
                     )
                         ),
                         ui.column(10,
+                            #ui.div(
+                            #{"style": "padding-bottom: 100px;"},
+                            #ui.output_plot("spac_Histogram_2", width="100%", height="80vh")
                             ui.div(
                             {"style": "padding-bottom: 100px;"},
-                            ui.output_plot("spac_Histogram_2", width="100%", height="80vh")
-                            # ui.output_plot("spac_Histogram_2", width=lambda input:f"{input.fig_width()}%" , height=lambda input:f"{input.fig_height()}vh")
+                            ui.output_plot("spac_Histogram_2")
+                            
                             )
                         )
                     )
@@ -696,9 +699,6 @@ def server(input, output, session):
             subset_history.set("")
 
 
-
-
-
     @output
     @render.plot
     @reactive.event(input.go_h1, ignore_none=True)
@@ -845,7 +845,15 @@ def server(input, output, session):
                 together=together_flag,
                 multiple=multiple_param
             )
-            #input.fig_height()
+            dpi = fig[0].get_dpi()
+            innerWidth = 1200
+            innerHeight = 1000
+            fig_width_px = (input.fig_width() / 100.0) * innerWidth
+            fig_height_px = (input.fig_height() / 100.0) * innerHeight
+            fig_width_inches = fig_width_px / dpi
+            fig_height_inches = fig_height_px / dpi
+            fig[0].set_size_inches(fig_width_inches, fig_height_inches)
+
             return fig
 
         return None
