@@ -65,7 +65,8 @@ app_ui = ui.page_fluid(
                         ui.column(10,
                             ui.div(
                             {"style": "padding-bottom: 100px;"},
-                            ui.output_plot("spac_Histogram_2", width=str(input.fig_width) + "%", height=str(input.fig_height) + "%")
+                            ui.output_plot("spac_Histogram_2", width="100%", height="80vh")
+                            # ui.output_plot("spac_Histogram_2", width=lambda input:f"{input.fig_width()}%" , height=lambda input:f"{input.fig_height()}vh")
                             )
                         )
                     )
