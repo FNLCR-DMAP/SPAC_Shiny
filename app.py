@@ -698,7 +698,7 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_h1, ignore_none=True)
     def spac_Histogram_1():
-        # Call the cached function with the current input values
+        #All current input values called in function
         group_by_check=input.h1_group_by_check()
         if not group_by_check:
             anno = False
