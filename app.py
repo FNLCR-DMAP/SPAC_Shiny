@@ -9,6 +9,8 @@ from pathlib import Path as path
 import spac
 import spac.visualization
 import spac.spatial_analysis
+from functools import lru_cache 
+import time
 
 app_ui = ui.page_fluid(
 
@@ -815,23 +817,44 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_h2, ignore_none=True)
     def spac_Histogram_2():
+        #All current input values called in function
+        if not input.h2_group_by_check():
+            anno_1 = False
+            together_check = False
+            multiple_param = False
+        elif input.h2_group_by_check():
+            anno_1 = input.h2_anno_1()
+            together_check = input.h2_together_check()
+            multiple_param = input.h2_together_drop()
+        return calculate_histogram(
+            input.h2_anno(),
+            anno_1,
+            input.h2_group_by_check(),
+            together_check,
+            multiple_param
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_histogram(anno, anno_1, group_by_check, together_check, multiple_param):
+        print("called")
+        time.sleep(4)
         adata = adata_main.get()
         if adata is None:
             return None
 
         # 1) If "Group By" is UNCHECKED, show a simple annotation histogram
-        if not input.h2_group_by_check():
+        if not group_by_check:
             fig = spac.visualization.histogram(
                 adata,
-                annotation=input.h2_anno()
+                annotation=anno
             )
             return fig
 
         # 2) If "Group By" is CHECKED, we must always supply a valid multiple parameter
         else:
             # If user also checked "Plot Together", use their selected stack type
-            if input.h2_together_check():
-                multiple_param = input.h2_together_drop()  # e.g. 'stack', 'dodge', etc.
+            if together_check:
+                multiple_param = multiple_param  # e.g. 'stack', 'dodge', etc.
                 together_flag = True
             else:
                 # If grouping by but not "plot together", pick a default layout
@@ -840,8 +863,8 @@ def server(input, output, session):
 
             fig = spac.visualization.histogram(
                 adata,
-                annotation=input.h2_anno(),
-                group_by=input.h2_anno_1(),
+                annotation=anno,
+                group_by=anno_1,
                 together=together_flag,
                 multiple=multiple_param
             )
