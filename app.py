@@ -694,38 +694,57 @@ def server(input, output, session):
 
 
 
-
-
     @output
     @render.plot
     @reactive.event(input.go_h1, ignore_none=True)
     def spac_Histogram_1():
+        # Call the cached function with the current input values
+        group_by_check=input.h1_group_by_check()
+        if not group_by_check:
+            anno = False
+            together_check = False
+            multiple_param = False
+        elif group_by_check:
+            anno = input.h1_anno()
+            together_check = input.h1_together_check()
+            multiple_param = input.h1_together_drop()
+        return calculate_histogram_1(
+            input.h1_feat(),
+            input.h1_layer(),
+            input.h1_log_x(),
+            input.h1_log_y(),
+            group_by_check,
+            together_check,
+            multiple_param,
+            anno
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_histogram_1(feat, layer, log_x, log_y, group_by_check, together_check, multiple_param, anno):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        btn_log_x = input.h1_log_x()
-        btn_log_y = input.h1_log_y()
         if adata is not None:
-            if input.h1_group_by_check() is not True:
-                if input.h1_layer() != "Original":
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(btn_log_x, btn_log_y))
+            if group_by_check is not True:
+                if layer != "Original":
+                    fig1 = spac.visualization.histogram(adata, feature=feat, layer=layer, log_scale=(log_x, log_y))
                     return fig1
                 else:
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(btn_log_x, btn_log_y))
+                    fig1 = spac.visualization.histogram(adata, feature=feat, log_scale=(log_x, log_y))
                     return fig1
 
-            if input.h1_group_by_check() is not False:
-                if input.h1_layer() != "Original":
-                    if input.h1_together_check() is  not False:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
+            if group_by_check is not False:
+                if layer != "Original":
+                    if together_check is  not False:
+                        fig1 = spac.visualization.histogram(adata, feature=feat, layer=layer, group_by=anno, together=together_check, log_scale=(log_x, log_y), multiple=multiple_param)
                         return fig1
                     else:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
+                        fig1 = spac.visualization.histogram(adata, feature=feat, layer=layer, group_by=anno, together=together_check, log_scale=(log_x, log_y))
                         return fig1
                 else:
-                    if input.h1_together_check() is  not False:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
+                    if together_check is  not False:
+                        fig1 = spac.visualization.histogram(adata, feature=feat, group_by=anno, together=together_check, log_scale=(log_x, log_y), multiple=multiple_param)
                         return fig1
                     else:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
+                        fig1 = spac.visualization.histogram(adata, feature=feat, group_by=anno, together=together_check, log_scale=(log_x, log_y))
                         return fig1
         return None
 
@@ -826,7 +845,7 @@ def server(input, output, session):
             anno_1 = input.h2_anno_1()
             together_check = input.h2_together_check()
             multiple_param = input.h2_together_drop()
-        return calculate_histogram(
+        return calculate_histogram_2(
             input.h2_anno(),
             anno_1,
             input.h2_group_by_check(),
@@ -835,9 +854,7 @@ def server(input, output, session):
         )
 
     @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
-    def calculate_histogram(anno, anno_1, group_by_check, together_check, multiple_param):
-        print("called")
-        time.sleep(4)
+    def calculate_histogram_2(anno, anno_1, group_by_check, together_check, multiple_param):
         adata = adata_main.get()
         if adata is None:
             return None
