@@ -955,25 +955,41 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_hm1, ignore_none=True)
     def spac_Heatmap():
+        #All current input values called in function
+        if not input.dendogram():
+            cluster_annotations = False
+            cluster_features = False
+        elif input.dendogram():
+            cluster_annotations = input.h2_anno_dendro()
+            cluster_features = input.h2_feat_dendro()
+        return calculate_heatmap(
+            input.hm1_anno(),
+            input.hm1_layer(),
+            input.dendogram(),
+            input.min_select(),
+            input.max_select(),
+            input.hm1_cmap(), # Get the selected color map from the dropdown 
+            input.hm_x_label_rotation(),
+            cluster_annotations,
+            cluster_features
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_heatmap(anno, layer, dendogram_check, vmin, vmax, cmap, x_label_rotation, cluster_annotations, cluster_features):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
         if adata is not None:
-            vmin = input.min_select()
-            vmax = input.max_select()  
-            cmap = input.hm1_cmap()  # Get the selected color map from the dropdown 
             kwargs = {"vmin": vmin,"vmax": vmax,} 
 
-            if input.dendogram() is not True:
-                if input.hm1_layer() != "Original":
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, **kwargs)
+            if dendogram_check is not True:
+                if layer != "Original":
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=anno, layer=layer, z_score=None, **kwargs)
                 else:
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, **kwargs)
-            elif input.dendogram() is not False:
-                cluster_annotations = input.h2_anno_dendro()
-                cluster_features = input.h2_feat_dendro()
-                if input.hm1_layer() != "Original":
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features, **kwargs)
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=anno, layer=None, z_score=None, **kwargs)
+            elif dendogram_check is not False:
+                if layer != "Original":
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=anno, layer=layer, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features, **kwargs)
                 else:
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features, **kwargs)
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=anno, layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features, **kwargs)
 
             if cmap != "viridis":  # Only update if a non-default color map is selected
                 fig.ax_heatmap.collections[0].set_cmap(cmap)
@@ -983,7 +999,7 @@ def server(input, output, session):
             # Rotate x-axis labels
             fig.ax_heatmap.set_xticklabels(
                 fig.ax_heatmap.get_xticklabels(),
-                rotation=input.hm_x_label_rotation(),  # degrees
+                rotation=x_label_rotation,  # degrees
                 horizontalalignment='right'
             )
             # fig is a seaborn.matrix.ClusterGrid
@@ -1071,9 +1087,17 @@ def server(input, output, session):
     @render_widget
     @reactive.event(input.go_sk1, ignore_none=True)
     def spac_Sankey():
+        #All current input values called in function
+        return calculate_Sankey(
+            input.sk1_anno1(),
+            input.sk1_anno2()
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_Sankey(anno_1, anno_2):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
         if adata is not None:
-            fig = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
+            fig = spac.visualization.sankey_plot(adata, source_annotation=anno_1, target_annotation=anno_2)
             return fig
         return None
 
@@ -1081,9 +1105,17 @@ def server(input, output, session):
     @render_widget
     @reactive.event(input.go_rhm1, ignore_none=True)
     def spac_Relational():
+        #All current input values called in function
+        return calculate_Relational(
+            input.rhm_anno1(),
+            input.rhm_anno2()
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_Relational(anno_1, anno_2):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
         if adata is not None:
-            result = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
+            result = spac.visualization.relational_heatmap(adata, source_annotation=anno_1, target_annotation=anno_2)
             df_relational.set(result['data'])
             return result['figure']
         return None
