@@ -10,7 +10,6 @@ import spac
 import spac.visualization
 import spac.spatial_analysis
 from functools import lru_cache 
-import time
 
 app_ui = ui.page_fluid(
 
@@ -796,19 +795,29 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_bp1, ignore_none=True)
     def spac_Boxplot_1():
+        #All current input values called in function
+        return calculate_boxplot_1(
+            input.bp1_anno(),
+            input.bp1_layer(),
+            input.bp1_features(),
+            input.bp1_outlier_check()
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_boxplot_1(anno, layer, features, outlier_check):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
         if adata is not None and adata.var is not None:
-            if input.bp1_layer() != "Original" and input.bp1_anno() != "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), layer=input.bp1_layer(), features=list(input.bp1_features()),showfliers=input.bp1_outlier_check())
+            if layer != "Original" and anno != "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, annotation=anno, layer=layer, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() == "Original" and input.bp1_anno() != "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), features=list(input.bp1_features()),showfliers=input.bp1_outlier_check())
+            if layer == "Original" and anno != "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, annotation=anno, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() != "Original" and input.bp1_anno() == "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, layer=input.bp1_layer(), features=list(input.bp1_features()),showfliers=input.bp1_outlier_check())
+            if layer != "Original" and anno == "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, layer=layer, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() == "Original" and input.bp1_anno() == "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, features=list(input.bp1_features()),showfliers=input.bp1_outlier_check())
+            if layer == "Original" and anno == "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
         return None
 
@@ -816,19 +825,29 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_bp2, ignore_none=True)
     def spac_Boxplot_2():
+        #All current input values called in function
+        return calculate_boxplot_2(
+            input.bp2_anno(),
+            input.bp2_layer(),
+            input.bp2_features(),
+            input.bp2_outlier_check()
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_boxplot_2(anno, layer, features, outlier_check):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
         if adata is not None and adata.var is not None:
-            if input.bp2_layer() != "Original" and input.bp2_anno() != "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), layer=input.bp2_layer(), features=list(input.bp2_features()),showfliers=input.bp2_outlier_check())
+            if layer != "Original" and anno != "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, annotation=anno, layer=layer, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() == "Original" and input.bp2_anno() != "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), features=list(input.bp2_features()),showfliers=input.bp2_outlier_check())
+            if layer == "Original" and anno != "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, annotation=anno, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() != "Original" and input.bp2_anno() == "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, layer=input.bp2_layer(), features=list(input.bp2_features()),showfliers=input.bp2_outlier_check())
+            if layer != "Original" and anno == "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, layer=layer, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() == "Original" and input.bp2_anno() == "No Annotation":
-                fig, ax, df = spac.visualization.boxplot(adata, features=list(input.bp2_features()),showfliers=input.bp2_outlier_check())
+            if layer == "Original" and anno == "No Annotation":
+                fig, ax, df = spac.visualization.boxplot(adata, features=list(features),showfliers=outlier_check)
                 return ax.legend(loc='upper right', bbox_to_anchor=(1, 1))
         return None
 
