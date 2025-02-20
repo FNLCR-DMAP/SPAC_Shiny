@@ -146,7 +146,7 @@ app_ui = ui.page_fluid(
                             ui.input_select("hm1_layer", "Select a Table", choices=[]),
                             ui.input_select("hm1_cmap", "Select Color Map", choices=["viridis", "plasma", "inferno", "magma", "cividis","coolwarm", "RdYlBu", "Spectral", "PiYG", "PRGn"]),  # Dropdown for color maps
                             ui.input_slider("hm_x_label_rotation", "Rotate X Axis Labels", min=0, max=90, value=25),
-                            ui.input_checkbox("dendogram", "Include Dendrogram", False),
+                            ui.input_checkbox("dendogram", "Include Dendrogram", True),
                             ui.div(id="main-hm1_check"),
                             ui.div(id="main-hm2_check"),
                             ui.div(id="main-min_num"),
@@ -942,14 +942,14 @@ def server(input, output, session):
         ui_initialized = heatmap_ui_initialized.get()
 
         if btn and not ui_initialized:
-            annotation_check = ui.input_checkbox("h2_anno_dendro", "Annotation Cluster", value=False)
+            annotation_check = ui.input_checkbox("h2_anno_dendro", "Annotation Cluster", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check"}, annotation_check),
                 selector="#main-hm1_check",
                 where="beforeEnd",
             )
 
-            feat_check = ui.input_checkbox("h2_feat_dendro", "Feature Cluster", value=False)
+            feat_check = ui.input_checkbox("h2_feat_dendro", "Feature Cluster", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check1"}, feat_check),
                 selector="#main-hm2_check",
