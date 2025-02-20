@@ -1246,18 +1246,35 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_umap2, ignore_none=True)
     def spac_UMAP2():
+        #All current input values called in function
+        if input.umap_rb2() == "Feature":
+            anno = False
+            layer2 = input.umap_layer2()
+            feat = input.umap_rb_feat2()
+        elif input.umap_rb2() == "Annotation":
+            anno = input.umap_rb_anno2()
+            feat = False
+            layer2 = False
+        return calculate_UMAP2(
+            anno,
+            feat,
+            input.umap_rb2(),
+            input.plottype2(),
+            layer,
+            input.umap_slider_2()
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_UMAP2(anno, feat, plot_check, plot_type, layer2, point_size_2):
         adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
-        point_size_2=input.umap_slider_2()
         if adata is not None:
-            if input.umap_rb2() == "Feature":
-                if input.umap_layer2() == "Original":
+            if plot_check == "Feature":
+                if layer2 == "Original":
                     layer2 = None
-                else:
-                    layer2 = input.umap_layer2()
-                out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), feature=input.umap_rb_feat2(), layer=layer2, point_size=point_size_2)
+                out = spac.visualization.dimensionality_reduction_plot(adata, method=plot_type, feature=feat, layer=layer2, point_size=point_size_2)
                 return out
-            elif input.umap_rb2() == "Annotation":
-                out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), annotation=input.umap_rb_anno2(), point_size=point_size_2)
+            elif plot_check == "Annotation":
+                out1 = spac.visualization.dimensionality_reduction_plot(adata, method=plot_type, annotation=anno, point_size=point_size_2)
                 return out1
         return None
 
