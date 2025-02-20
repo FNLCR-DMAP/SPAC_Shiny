@@ -1149,17 +1149,25 @@ def server(input, output, session):
             anno = input.umap_rb_anno()
             feat = False
             layer = False
+        current_params = (anno, feat, input.umap_rb(), input.plottype(), layer, input.umap_slider_1())
+        if current_params == umap_prev_param.get():
+            counter.set(counter.get()+1)
+        else:
+            umap_prev_param.set(current_params)
+            counter.set(0)
+        
         return calculate_UMAP(
             anno,
             feat,
             input.umap_rb(),
             input.plottype(),
             layer,
-            input.umap_slider_1()
+            input.umap_slider_1(),
+            counter.get()
         )
 
     @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
-    def calculate_UMAP(anno, feat, plot_check, plot_type, layer, point_size):
+    def calculate_UMAP(anno, feat, plot_check, plot_type, layer, point_size, counter):
         adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
         if adata is not None:
             if plot_check == "Feature":
@@ -1175,6 +1183,8 @@ def server(input, output, session):
     # Track the UI state
     umap_annotation_initialized = reactive.Value(False)
     umap_feature_initialized = reactive.Value(False)
+    umap_prev_param = reactive.Value(0)
+    counter = reactive.Value(0)
 
     @reactive.effect
     def umap_reactivity():
@@ -1260,7 +1270,7 @@ def server(input, output, session):
             feat,
             input.umap_rb2(),
             input.plottype2(),
-            layer,
+            layer2,
             input.umap_slider_2()
         )
 
