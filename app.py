@@ -245,7 +245,7 @@ app_ui = ui.page_fluid(
                 ui.column(12,
                     ui.row(
                         ui.column(6,
-                            ui.input_radio_buttons("umap_rb", "Choose one:", ["Annotation", "Feature"]),
+                            ui.input_radio_buttons("umap_rb", "Choose one:", ["Annotation", "Feature"], selected="Annotation"),
                             ui.input_select("plottype", "Select a plot type", choices=["umap", "pca", "tsne"]),
                             ui.div(id="main-ump_rb_dropdown_anno"),
                             ui.div(id="main-ump_rb_dropdown_feat"),
@@ -255,7 +255,7 @@ app_ui = ui.page_fluid(
                             ui.output_plot("spac_UMAP", width="100%", height="80vh")
                         ),
                         ui.column(6,
-                            ui.input_radio_buttons("umap_rb2", "Choose one:", ["Annotation", "Feature"]),
+                            ui.input_radio_buttons("umap_rb2", "Choose one:", ["Annotation", "Feature"], selected="Annotation"),
                             ui.input_select("plottype2", "Select a plot type", choices=["umap", "pca", "tsne"]),
                             ui.div(id="main-ump_rb_dropdown_anno2"),
                             ui.div(id="main-ump_rb_dropdown_feat2"),
@@ -1140,18 +1140,35 @@ def server(input, output, session):
     @render.plot
     @reactive.event(input.go_umap1, ignore_none=True)
     def spac_UMAP():
+        #All current input values called in function
+        if input.umap_rb() == "Feature":
+            anno = False
+            layer = input.umap_layer()
+            feat = input.umap_rb_feat()
+        elif input.umap_rb() == "Annotation":
+            anno = input.umap_rb_anno()
+            feat = False
+            layer = False
+        return calculate_UMAP(
+            anno,
+            feat,
+            input.umap_rb(),
+            input.plottype(),
+            layer,
+            input.umap_slider_1()
+        )
+
+    @lru_cache(maxsize=128)  # Adjust maxsize based on your needs
+    def calculate_UMAP(anno, feat, plot_check, plot_type, layer, point_size):
         adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
-        point_size=input.umap_slider_1()
         if adata is not None:
-            if input.umap_rb() == "Feature":
-                if input.umap_layer() == "Original":
+            if plot_check == "Feature":
+                if layer == "Original":
                     layer = None
-                else:
-                    layer = input.umap_layer()
-                out = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), feature=input.umap_rb_feat(), layer=layer, point_size=point_size)
+                out = spac.visualization.dimensionality_reduction_plot(adata, method=plot_type, feature=feat, layer=layer, point_size=point_size)
                 return out
-            elif input.umap_rb() == "Annotation":
-                out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), annotation=input.umap_rb_anno(), point_size=point_size)
+            elif plot_check == "Annotation":
+                out1 = spac.visualization.dimensionality_reduction_plot(adata, method=plot_type, annotation=anno, point_size=point_size)
                 return out1
         return None
 
