@@ -717,9 +717,6 @@ def server(input, output, session):
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
                     else:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-            axes = fig1[1] if isinstance(fig1[1], list) else [fig1[1]]
-            for ax in axes:
-                ax.tick_params(axis='x', rotation=90, labelsize=10)
             return fig1
         return None
 
@@ -821,7 +818,6 @@ def server(input, output, session):
                 adata,
                 annotation=input.h2_anno()
             )
-            fig[1].tick_params(axis='x', rotation=90, labelsize=10)
             return fig
 
         # 2) If "Group By" is CHECKED, we must always supply a valid multiple parameter
@@ -842,25 +838,6 @@ def server(input, output, session):
                 together=together_flag,
                 multiple=multiple_param
             )
-
-            axes = fig[1]
-            all_categories = adata.obs[input.h2_anno()].astype('category').cat.categories
-            adata.obs[input.h2_anno()] = (adata.obs[input.h2_anno()].astype('category').cat.set_categories(all_categories))
-            if together_flag == True:
-               axes.tick_params(axis='x', rotation=90, labelsize=10)
-            else:
-                n_cats = len(all_categories)
-                spacing = 1 / (n_cats * 1.5)
-                
-                for idx, ax in enumerate(axes):
-                    # Set consistent x-ticks for all subplots
-                    ax.set_xticks(np.arange(n_cats) + spacing)
-                    ax.set_xlim(-0.5, n_cats - 0.5)
-                    if idx != len(axes)-1:
-                        ax.tick_params(axis='x', labelbottom=False)
-                    else:
-                        ax.set_xticklabels(all_categories, rotation=90, fontsize=10, ha='center', position=(0, -0.02))
-            fig[0].subplots_adjust(hspace=0.3, bottom=0.2)
             return fig
 
         return None
