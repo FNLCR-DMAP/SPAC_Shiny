@@ -287,10 +287,32 @@ app_ui = ui.page_fluid(
                     )
                 )
             )
+        ),
+    
+
+        # 10. TERMINOLOGY PANEL ----------------------------------
+        ui.nav_panel("Terminology",
+            ui.card({"style": "width:100%;"},   
+                ui.column(12,
+                    ui.row(
+                        ui.column(12,
+                            ui.h2("SPAC Terminology"),
+                            ui.p("This tab provides an overview of key terminology used in SPAC."),
+                            ui.tags.ul(
+                                ui.tags.li(ui.tags.b("Features:"),),
+                                ui.tags.li(ui.tags.b("Annotations:"),),
+                                ui.tags.li(ui.tags.b("Tables:"),)
+                            ),
+                            ui.p("For more in-depth explanations, visit our ",
+                                ui.a("GitHub page", href="https://github.com/FNLCR-DMAP/SPAC_Shiny", target="_blank"),
+                                ".")
+                      )
+                    )
+                )
+            )
         )
     )
 )
-
 
 def server(input, output, session):
 
