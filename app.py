@@ -735,7 +735,7 @@ def server(input, output, session):
                 where="beforeEnd",
             )
 
-            together_check = ui.input_checkbox("h1_together_check", "Plot Together", value=False)
+            together_check = ui.input_checkbox("h1_together_check", "Plot Together", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check"}, together_check),
                 selector="#main-h1_check",
@@ -861,7 +861,7 @@ def server(input, output, session):
                 where="beforeEnd",
             )
 
-            together_check = ui.input_checkbox("h2_together_check", "Plot Together", value=False)
+            together_check = ui.input_checkbox("h2_together_check", "Plot Together", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check-1"}, together_check),
                 selector="#main-h2_check",
