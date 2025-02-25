@@ -287,6 +287,25 @@ app_ui = ui.page_fluid(
                     )
                 )
             )
+        ),
+
+        # 9. SCATTERPLOT PANEL ------------------------------------
+        ui.nav_panel("Datashader",
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("datashader_layer", "Select a Table", choices=[], selected="Original"),
+                            ui.input_select("datashader_x", "Select X Axis", choices=[]),
+                            ui.input_select("datashader_y", "Select Y Axis", choices=[]),
+                            ui.input_action_button("go_datashader", "Render Plot", class_="btn-success")
+                        ),
+                        ui.column(10,
+                            ui.output_plot("spac_Datashader", width="100%", height="80vh")
+                        )
+                    )
+                )
+            )
         )
     )
 )
@@ -516,6 +535,7 @@ def server(input, output, session):
             ui.update_select("bp2_layer", choices=new_choices)
             ui.update_select("hm1_layer", choices=new_choices)
             ui.update_select("scatter_layer", choices=new_choices)
+            ui.update_select("datashader_layer", choices=new_choices)
         return
     @reactive.Effect
     def update_select_input_anno_bp():
@@ -529,6 +549,8 @@ def server(input, output, session):
         choices = get_scatterplot_names()
         ui.update_select("scatter_x", choices=choices)
         ui.update_select("scatter_y", choices=choices)
+        ui.update_select("datashader_x", choices=choices)
+        ui.update_select("datashader_y", choices=choices)
         return
 
 
@@ -1441,6 +1463,66 @@ def server(input, output, session):
             fig1, ax1 = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
             return ax1
 
+
+
+    @reactive.Calc
+    def get_datashader_coordinates_x():
+        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), layers=layers_data.get())
+        obsm = obsm_names.get()
+        features = var_names.get()
+        layer_selection = input.datashader_layer()
+        selection = input.datashader_x()
+
+        if selection in obsm:
+            coords = adata.obsm[selection]
+            x_coords = coords[:, 0]  # Extract the first column for x-coordinates
+            return x_coords
+        elif selection in features and layer_selection == "Original":
+            column_index = adata.var_names.get_loc(selection)
+            x_coords = adata.X[:, column_index]  # Extract the column corresponding to the feature
+            return x_coords
+        elif selection in features and layer_selection != "Original":
+            column_index = adata.var_names.get_loc(selection)
+            new_layer = adata.layers[layer_selection]
+            x_coords = new_layer[:, column_index]  # Extract the column corresponding to the feature
+            return x_coords
+
+        return None
+
+
+
+    @reactive.Calc
+    def get_datashader_coordinates_y():
+        adata = adata_main.get()
+        obsm = obsm_names.get()
+        features = var_names.get()
+        layer_selection = input.datashader_layer()
+        selection = input.datashader_x()
+
+        if selection in obsm:
+            coords = adata.obsm[selection]
+            y_coords = coords[:, 1]  # Extract the second column for y-coordinates
+            return y_coords
+        elif selection in features and layer_selection == "Original":
+            column_index = adata.var_names.get_loc(selection)
+            y_coords = adata.X[:, column_index]  # Extract the column corresponding to the feature
+            return y_coords
+        elif selection in features and layer_selection != "Original":
+            column_index = adata.var_names.get_loc(selection)
+            new_layer = adata.layers[layer_selection]
+            y_coords = new_layer[:, column_index]  # Extract the column corresponding to the feature
+            return y_coords
+
+        return None
+
+    @output
+    @render.plot
+    @reactive.event(input.go_datashader, ignore_none=True)
+    def spac_Datashader():
+        x_points = get_datashader_coordinates_x()
+        y_points = get_datashader_coordinates_y()
+        fig, ax = spac.visualization.datashader_2D_scatter(x_points,y_points)
+        return ax
 
 
 
