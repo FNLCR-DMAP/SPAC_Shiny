@@ -51,6 +51,8 @@ app_ui = ui.page_fluid(
                         ui.column(2,
                             ui.input_select("h2_anno", "Select an Annotation", choices=[]),
                             ui.input_checkbox("h2_group_by_check", "Group By", value=False),
+                            ui.div(ui.panel_conditional("input.h2_group_by_check === 'true'" , ui.input_checkbox("anno_facet", "use facet plots", value=True)),
+                                   id="main-h2_facet_check"),
                             ui.div(id="main-h2_dropdown"),
                             ui.div(id="main-h2_check"),
                             ui.div(id="main-h2_together_drop"),
@@ -77,6 +79,8 @@ app_ui = ui.page_fluid(
                             ui.input_select("h1_feat", "Select a Feature", choices=[]),
                             ui.input_select("h1_layer", "Select a Table", choices=[], selected=["Original"]),
                             ui.input_checkbox("h1_group_by_check", "Group By", value=False),
+                            ui.div(ui.panel_conditional("input.h1_group_by_check === 'true'", ui.input_checkbox("feat_facet", "use facet plots", value=True),
+                                   id="main-h1_facet_check")),
                             ui.input_checkbox("h1_log_x", "Log X-axis", value=False),
                             ui.input_checkbox("h1_log_y", "Log Y-axis", value=False),
                             ui.div(id="main-h1_dropdown"),
@@ -710,15 +714,15 @@ def server(input, output, session):
 
             if input.h1_group_by_check() is not False:
                 if input.h1_layer() != "Original":
-                    if input.h1_together_check() is  not False:
+                    if input.h1_together_check() is not False:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
                     else:
-                        fig1, ax = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
+                        fig1= spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), facet=input.feat_facet())
                 else:
-                    if input.h1_together_check() is  not False:
+                    if input.h1_together_check() is not False:
                         fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), multiple=input.h1_together_drop())
                     else:
-                        fig1, ax = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
+                        fig1= spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y), facet=input.feat_facet())
             return fig1
         return None
 
@@ -828,23 +832,22 @@ def server(input, output, session):
             if input.h2_together_check():
                 multiple_param = input.h2_together_drop()  # e.g. 'stack', 'dodge', etc.
                 together_flag = True
+                facet_param = False
             else:
                 # If grouping by but not "plot together", pick a default layout
                 multiple_param = "layer"  # or 'dodge' or any valid string
                 together_flag = False
+                facet_param = input.anno_facet()
 
             fig = spac.visualization.histogram(
                 adata,
                 annotation=input.h2_anno(),
                 group_by=input.h2_anno_1(),
                 together=together_flag,
-                multiple=multiple_param
+                multiple=multiple_param,
+                facet=facet_param
             )
-            if input.h2_together_check():
-                return fig
-            else:
-                return fig[0]
-
+            return fig
 
         return None
 
