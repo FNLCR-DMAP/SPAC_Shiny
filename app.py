@@ -33,10 +33,31 @@ app_ui = ui.page_fluid(
                         ui.column(6,
                             ui.input_checkbox("subset_select_check", "Subset Annotation", False),
                             ui.div(id="main-subset_anno_dropdown"),
-                            ui.div(id="main-subset_label_dropdown"),
                             ui.input_action_button("go_subset", "Subset Data", class_="btn-success"),
                             ui.input_action_button("restore_data", "Restore Original Data", class_="btn-warning"),
                             ui.output_text("print_subset_history")
+                        )
+                    )
+                )
+            ), #closing data input
+
+            #ADD TERMINOLOGY 
+            ui.card({"style": "width:100%;"},   
+                ui.column(12,
+                    ui.row(
+                        ui.column(12,
+                            ui.h2("SPAC Terminology"),
+                            ui.p("SPAC uses general terminology to simplify technical terms from the AnnData object for less technical users. Here is a quick guide:."),
+                            ui.tags.ul(
+                                ui.tags.li([ui.tags.b("Cells:"), " Rows in the X matrix of AnnData."]),
+                                ui.tags.li(ui.tags.b("Features:")," Columns in the X matrix of AnnData, representing gene expression or antibody intensity."),
+                                ui.tags.li(ui.tags.b("Tables:")," Originally called layers in AnnData, these represent transformed features."),
+                                ui.tags.li(ui.tags.b("Associated Tables:")," Corresponds to .obsm in AnnData and can store spatial coordinates, UMAP embeddings, etc."),
+                                ui.tags.li(ui.tags.b("Annotation:")," Corresponds to .obs in AnnData and can store cell phenotypes, experiment names, slide IDs, etc.")
+                            ),
+                            ui.p("For more in-depth explanations, visit our ",
+                                ui.a("GitHub page", href="https://github.com/FNLCR-DMAP/spac_datamine/blob/main/CONTRIBUTING.md", target="_blank"),
+                                ".")
                         )
                     )
                 )
@@ -284,12 +305,13 @@ app_ui = ui.page_fluid(
                         ui.column(10,
                             ui.output_plot("spac_Scatter", width="100%", height="80vh")
                         )
+                        )
                     )
                 )
-            )
-        )
+            
+             )
+         )
     )
-)
 
 
 def server(input, output, session):
