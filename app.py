@@ -211,7 +211,7 @@ app_ui = ui.page_fluid(
                 ui.column(12,
                     ui.row(
                         ui.column(2,
-                            ui.input_select("spatial_anno", "Select an Annotation", choices=[]),
+                            ui.input_selectize("spatial_anno", "Select an Annotation", multiple=True, choices=[], selected=[]),
                             ui.input_slider("spatial_slider", "Point Size", min=2, max=10, value=3),
                             ui.input_checkbox("slide_select_check", "Stratify by Slide", False),
                             ui.div(id="main-slide_dropdown"),
@@ -536,6 +536,12 @@ def server(input, output, session):
             ui.update_selectize("rhm_anno1", selected=selected_names[0])
             ui.update_selectize("rhm_anno2", selected=selected_names[1])
         return
+    @reactive.Effect
+    def update_spatial_selectize():
+        selected_names=obs_names.get()
+        if selected_names is not None:
+            ui.update_selectize("spatial_anno", selected=selected_names[0])
+            return
 
 
 
@@ -1424,30 +1430,31 @@ def server(input, output, session):
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get(), dtype=X_data.get().dtype)
         slide_check = input.slide_select_check()
         region_check = input.region_select_check()
+        annotations = list(input.spatial_anno())
         if adata is not None:
             if slide_check is False and region_check is False:
-                out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
+                out = spac.visualization.interative_spatial_plot(adata, annotations=annotations, figure_width=4, figure_height=4, dot_size=input.spatial_slider())
                 out[0]['image_object'].update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 out[0]['image_object'].update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 return out[0]['image_object']
             if slide_check is True and region_check is False:
 
                 adata_subset = adata[adata.obs[input.slide_select_drop()] == input.slide_select_label()].copy()
-                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
+                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=annotations, figure_width=4, figure_height=4, dot_size=input.spatial_slider())
                 out[0]['image_object'].update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 out[0]['image_object'].update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 return out[0]['image_object']
             if slide_check is True and region_check is True:
 
                 adata_subset = adata[(adata.obs[input.slide_select_drop()] == input.slide_select_label()) & (adata.obs[input.region_select_drop()] == input.region_label_select())].copy()
-                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
+                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=annotations, figure_width=4, figure_height=4, dot_size=input.spatial_slider())
                 out[0]['image_object'].update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 out[0]['image_object'].update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 return out[0]['image_object']
             if slide_check is False and region_check is True:
 
                 adata_subset = adata[(adata.obs[input.region_select_drop()] == input.region_label_select())].copy()
-                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
+                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=annotations, figure_width=4, figure_height=4, dot_size=input.spatial_slider())
                 out[0]['image_object'].update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 out[0]['image_object'].update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
                 return out[0]['image_object']
