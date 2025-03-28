@@ -852,26 +852,26 @@ def server(input, output, session):
         if adata is not None:
             if input.h1_group_by_check() is not True:
                 if input.h1_layer() != "Original":
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
+                    fig1, ax, df = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
                     return fig1
                 else:
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
+                    fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
                     return fig1
 
             if input.h1_group_by_check() is not False:
                 if input.h1_layer() != "Original":
                     if input.h1_together_check() is  not False:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y, multiple=input.h1_together_drop())
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y, multiple=input.h1_together_drop())
                         return fig1
                     else:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
                         return fig1
                 else:
                     if input.h1_together_check() is  not False:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y, multiple=input.h1_together_drop())
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y, multiple=input.h1_together_drop())
                         return fig1
                     else:
-                        fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y)
                         return fig1
         return None
 
@@ -1107,7 +1107,7 @@ def server(input, output, session):
 
         # 1) If "Group By" is UNCHECKED, show a simple annotation histogram
         if not input.h2_group_by_check():
-            fig = spac.visualization.histogram(
+            fig, ax, df = spac.visualization.histogram(
                 adata,
                 annotation=input.h2_anno()
             )
@@ -1124,7 +1124,7 @@ def server(input, output, session):
                 multiple_param = "layer"  # or 'dodge' or any valid string
                 together_flag = False
 
-            fig = spac.visualization.histogram(
+            fig, ax, df = spac.visualization.histogram(
                 adata,
                 annotation=input.h2_anno(),
                 group_by=input.h2_anno_1(),
@@ -1132,7 +1132,6 @@ def server(input, output, session):
                 multiple=multiple_param
             )
             return fig
-
         return None
 
     histogram2_ui_initialized = reactive.Value(False)
