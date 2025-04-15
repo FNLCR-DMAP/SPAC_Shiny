@@ -1,5 +1,5 @@
 from shiny import App, Inputs, Outputs, Session, render, ui, reactive
-from shinywidgets import output_widget, render_widget 
+from shinywidgets import output_widget, render_widget, render_plotly
 import pickle
 import anndata as ad
 import pandas as pd
@@ -9,209 +9,400 @@ from pathlib import Path as path
 import spac
 import spac.visualization
 import spac.spatial_analysis
-import logging
+import spac.data_utils
+
+
+file_path = "healthy_lung_adata.h5ad"  # Path to your preloaded .pickle file
+preloaded_data = None  # Initialize as None
+
+# Check if the file exists before attempting to load it
+try:
+    with open(file_path, 'rb') as file:
+        if file_path.endswith('.pickle'):
+            preloaded_data = pickle.load(file)
+        elif file_path.endswith('.h5ad'):
+            preloaded_data = ad.read_h5ad(file)
+except FileNotFoundError:
+    print("Preloaded data file not found. Proceeding without preloaded data.")
+
 
 app_ui = ui.page_fluid(
 
-
     ui.navset_card_tab(
-        
 
-    
+        # 1. DATA INPUT PANEL -----------------------------------
         ui.nav_panel("Data Input",
-                ui.div(
-                {"style": "font-weight: bold; font-size: 30px;"},
-                ui.p("SPAC Interactive Dashboard")),
-                ui.row(
-                ui.column(6,
-                    ui.input_file("input_file", "Choose a file to upload:", multiple=False),
-                    ui.output_text("print_rows"),
-                    ui.output_text("print_columns"),
-                    ui.output_text("print_obs_names"),
-                    ui.output_text("print_obsm_names"),
-                    ui.output_text("print_layers_names"),
-                    ui.output_text("print_uns_names")
-                ),
-                ui.column(6,
-                    ui.input_checkbox("subset_select_check", "Subset Annotation", False),
-                    ui.div(id="main-subset_anno_dropdown"),
-                    ui.div(id="main-subset_label_dropdown"),
-                    ui.input_action_button("go_subset", "Subset Data", class_="btn-success"),
-                    ui.input_action_button("restore_data", "Restore Original Data", class_="btn-warning"),
-                    ui.output_text("print_subset_history")
-                )
-                )
-            
-        ), 
-        ui.nav_panel("Features",
-    
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("h1_feat", "Select a Feature", choices=[]),
-                        ui.input_select("h1_layer", "Select a Table", choices=[], selected=["Original"]),
-                        ui.input_checkbox("h1_group_by_check", "Group By", value=False),
-                        ui.input_checkbox("h1_log_x", "Log X-axis", value=False),
-                        ui.input_checkbox("h1_log_y", "Log Y-axis", value=False),
-                        ui.div(id="main-h1_dropdown"),
-                        ui.div(id="main-h1_check"),
-                        ui.input_action_button("go_h1", "Render Plot", class_="btn-success")
-                    ),
-                    ui.column(10,
-                        ui.output_plot("spac_Histogram_1")
-                        
+            # Add custom CSS to increase height of upload message/progress bar
+            ui.tags.head(ui.tags.style("""
+                .shiny-file-input-progress {
+                    height: 30px !important; 
+                    line-height: 30px !important;
+                }
+                .progress-bar {
+                    height: 30px !important;
+                    line-height: 30px !important;
+                    font-size: 16px !important;
+                }
+                /* Ensure text doesn't get cut off */
+                .progress-bar span {
+                    white-space: nowrap;
+                    overflow: visible;
+                }
+                /* Style for the metric output text - larger but not bold */
+                .metric-output {
+                    font-size: 18px;
+                }
+            """)),
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(6,
+                            ui.card(
+                                ui.div({"style": "font-weight: bold; font-size: 30px;"},
+                                    ui.p("SPAC Interactive Dashboard")),
+                                ui.div({"style": "margin-bottom: 15px;"},
+                                    ui.input_file("input_file", "Choose a file to upload:", 
+                                                multiple=False, 
+                                                width="100%")
+                                ),
+                                ui.row(
+                                    ui.column(6,
+                                        ui.card(
+                                            ui.div({"class": "metric-output"},
+                                                ui.output_text("print_rows")
+                                            ),
+                                            height="auto", class_="p-2 mb-2"
+                                        ),
+                                        ui.card(
+                                            ui.div({"class": "metric-output"},
+                                                ui.output_text("print_columns")
+                                            ),
+                                            height="auto", class_="p-2 mb-2"
+                                        ),
+                                        ui.card(
+                                            ui.div({"class": "metric-output"},
+                                                ui.output_text("print_obs_names")
+                                            ),
+                                            height="auto", class_="p-2 mb-2"
+                                        )
+                                    ),
+                                    ui.column(6,
+                                        ui.card(
+                                            ui.div({"class": "metric-output"},
+                                                ui.output_text("print_obsm_names")
+                                            ),
+                                            height="auto", class_="p-2 mb-2"
+                                        ),
+                                        ui.card(
+                                            ui.div({"class": "metric-output"},
+                                                ui.output_text("print_layers_names")
+                                            ),
+                                            height="auto", class_="p-2 mb-2"
+                                        ),
+                                        ui.card(
+                                            ui.div({"class": "metric-output"},
+                                                ui.output_text("print_uns_names")
+                                            ),
+                                            height="auto", class_="p-2 mb-2"
+                                        )
+                                    )
+                                ),
+                                class_="mb-3"
+                            ),
+                            #SPAC TERMINOLOGY 
+                            ui.card({"style": "width:100%;"},   
+                                ui.column(12,
+                                    ui.h2("SPAC Terminology"),
+                                    ui.p("SPAC uses general terminology to simplify technical terms from the AnnData object for less technical users. Here is a quick guide:"),
+                                    ui.tags.ul(
+                                        ui.tags.li([ui.tags.b("Cells:"), " Rows in the X matrix of AnnData."]),
+                                        ui.tags.li([ui.tags.b("Features:"), " Columns in the X matrix of AnnData, representing gene expression or antibody intensity."]),
+                                        ui.tags.li([ui.tags.b("Tables:"), " Originally called layers in AnnData, these represent transformed features."]),
+                                        ui.tags.li([ui.tags.b("Associated Tables:"), " Corresponds to .obsm in AnnData and can store spatial coordinates, UMAP embeddings, etc."]),
+                                        ui.tags.li([ui.tags.b("Annotation:"), " Corresponds to .obs in AnnData and can store cell phenotypes, experiment names, slide IDs, etc."])
+                                    ),
+                                    ui.p("For more in-depth explanations, visit our ",
+                                        ui.a("GitHub page", href="https://github.com/FNLCR-DMAP/spac_datamine/blob/main/CONTRIBUTING.md", target="_blank"),
+                                        ".")
+                                )
+                            )
+                        ),
+                        ui.column(6,
+                            ui.card(
+                                ui.input_checkbox("subset_select_check", "Subset Annotation", False),
+                                ui.div(id="main-subset_anno_dropdown"),
+                                ui.div(id="main-subset_label_dropdown"),
+                                ui.input_action_button("go_subset", "Subset Data", class_="btn-success"),
+                                ui.input_action_button("restore_data", "Restore Original Data", class_="btn-warning"),
+                                ui.div({"class": "metric-output"},
+                                    ui.output_text("print_subset_history")
+                                ),
+                                class_="mb-3"
+                            )
+                        ),
+                        ui.card(
+                            {"style": "width:100%;"},
+                            ui.h4("Annotation Summary with Top 10 Labels"),
+                            ui.output_ui("annotation_labels_display")
+                        )
                     )
-                ),
-            )),
-            ui.nav_panel("Boxplots",
-            ui.row(
-                ui.column(6,
-                    ui.card(
-                        ui.column(12,
-                            ui.input_select("bp1_anno", "Select an Annotation", choices=[]),
-                            ui.input_select("bp1_layer", "Select a Table", choices=[], selected="Original"),
-                            ui.input_selectize("bp1_features", "Select Features", multiple=True, choices=[], selected=[]),
-                            ui.input_action_button("go_bp1", "Render Plot", class_="btn-success"),
-                            ui.output_plot("spac_Boxplot_1")
-                        )
-                    ),
-                ),
-                ui.column(6,
-                    ui.card(
-                        ui.column(12,
-                            ui.input_select("bp2_anno", "Select an Annotation", choices=[]),
-                            ui.input_select("bp2_layer", "Select a Table", choices=[], selected="Original"),
-                            ui.input_selectize("bp2_features", "Select Features", multiple=True, choices=[], selected=[]),
-                            ui.input_action_button("go_bp2", "Render Plot", class_="btn-success"),
-                            ui.output_plot("spac_Boxplot_2")
-                        )
-                    ),
-                ),
+                )
             )
         ),
+
+        # 2. ANNOTATIONS PANEL (Histogram of annotations) --------
         ui.nav_panel("Annotations",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("h2_anno", "Select an Annotation", choices=[]),
-                        ui.input_checkbox("h2_group_by_check", "Group By", value=False),
-                        ui.div(id="main-h2_dropdown"),
-                        ui.div(id="main-h2_check"),
-                        ui.input_action_button("go_h2", "Render Plot", class_="btn-success"),
-                    ),
-                    ui.column(10,
-                        ui.output_plot("spac_Histogram_2")
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("h2_anno", "Select an Annotation", choices=[]),
+                            ui.input_checkbox("h2_group_by_check", "Group By", value=False),
+                            ui.div(id="main-h2_dropdown"),
+                            ui.div(id="main-h2_check"),
+                            ui.div(id="main-h2_together_drop"),
+                            ui.input_slider("anno_slider", "Rotate Axis", min=0, max=90, value=0),
+                            ui.input_action_button("go_h2", "Render Plot", class_="btn-success"),
+                            ui.div(
+                                {"style": "padding-top: 20px;"},
+                                ui.output_ui("download_histogram_button_ui")
+                                ),
+                        ),
+                        ui.column(10,
+                            ui.div(
+                            {"style": "padding-bottom: 100px;"},
+                            ui.output_plot("spac_Histogram_2", width="100%", height="80vh")
+                            )
+                        )
                     )
                 )
             )
         ),
+
+
+        # 3. FEATURES PANEL (Histogram) --------------------------
+        ui.nav_panel("Features",
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("h1_feat", "Select a Feature", choices=[]),
+                            ui.input_select("h1_layer", "Select a Table", choices=[], selected=["Original"]),
+                            ui.input_checkbox("h1_group_by_check", "Group By", value=False),
+                            ui.input_checkbox("h1_log_x", "Log X-axis", value=False),
+                            ui.input_checkbox("h1_log_y", "Log Y-axis", value=False),
+                            ui.div(id="main-h1_dropdown"),
+                            ui.div(id="main-h1_check"),
+                            ui.div(id="main-h1_together_drop"),
+                            ui.input_slider("feat_slider", "Rotate Axis", min=0, max=90, value=0),
+                            ui.input_action_button("go_h1", "Render Plot", class_="btn-success"),
+                            ui.div(
+                                    {"style": "padding-top: 20px;"},
+                                    ui.output_ui("download_histogram1_button_ui")
+                                ),
+                        ),
+                        ui.column(10,
+                            ui.div(
+                            {"style": "padding-bottom: 100px;"},
+                            ui.output_plot("spac_Histogram_1", width="100%", height="60vh")
+                            )
+                        )
+                    )
+                )
+            )
+        ),
+
+        # 4. BOXPLOTS PANEL --------------------------------------
+        ui.nav_panel("Boxplot",
+            ui.card({"style": "width:100%;"},
+                ui.row(
+                    ui.column(3,
+                        ui.input_select("bp_anno", "Select an Annotation", choices=[]),
+                        ui.input_selectize("bp_features", "Select Features", multiple=True, choices=[], selected=[]),
+
+                        ui.input_select("bp_layer", "Select a Table", choices=[], selected="Original"),
+                        ui.input_select("bp_outlier_check", "Add Outliers", choices={"all": 'All', "downsample": "Downsampled", "none": "None"}, selected="none"),
+
+                        ui.input_checkbox("bp_log_scale", "Log Scale", False),
+                        ui.input_checkbox("bp_orient", "Horizontal Orientation", False),
+                        ui.input_checkbox("bp_output_type", "Enable Interactive Plot", True),
+                        ui.input_action_button("go_bp", "Render Plot", class_="btn-success"),
+                        ui.div(
+                                    {"style": "padding-top: 20px;"},
+                                    ui.output_ui("download_button_ui1")
+                                )
+                    ),
+                    ui.column(9,
+                        ui.div(
+                            {"style": "padding-bottom: 50px;"},
+                            # Static plot conditional panel (when interactive unchecked)
+                            ui.panel_conditional(
+                                "input.bp_output_type === false",
+                                output_widget("boxplot_static", width="100%", height="600px")
+                            ),
+                            # Interactive plot conditional panel (when interactive checked)
+                            ui.panel_conditional(
+                                "input.bp_output_type === true",
+                                output_widget("spac_Boxplot", width="100%", height="600px")
+                            )
+                        )
+                    ),
+                )
+            ),
+        ),
+
+
+        # 5. FEAT. VS ANNO. (Heatmap) ----------------------------
         ui.nav_panel("Feat. Vs Anno.",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("hm1_anno", "Select an Annotation", choices=[]),
-                        ui.input_select("hm1_layer", "Select a Table", choices=[]),
-                        ui.input_checkbox("dendogram", "Include Dendrogram", False),
-                        ui.div(id="main-hm1_check"),
-                        ui.div(id="main-hm2_check"),
-                        ui.input_action_button("go_hm1", "Render Plot", class_="btn-success")
-                    ),
-                    ui.column(10,
-                        ui.output_plot("spac_Heatmap")
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("hm1_anno", "Select an Annotation", choices=[]),
+                            ui.input_select("hm1_layer", "Select a Table", choices=[]),
+                            ui.input_select("hm1_cmap", "Select Color Map", choices=["viridis", "plasma", "inferno", "magma", "cividis","coolwarm", "RdYlBu", "Spectral", "PiYG", "PRGn"]),  # Dropdown for color maps
+                            ui.input_slider("hm_x_label_rotation", "Rotate X Axis Labels", min=0, max=90, value=25),
+                            ui.input_checkbox("dendogram", "Include Dendrogram", False),
+                            ui.div(id="main-hm1_check"),
+                            ui.div(id="main-hm2_check"),
+                            ui.div(id="main-min_num"),
+                            ui.div(id="main-max_num"),
+                            ui.input_action_button("go_hm1", "Render Plot", class_="btn-success"),
+                            ui.div(
+                                    {"style": "padding-top: 20px;"},
+                                    ui.output_ui("download_button_ui")
+                                )
+                        ),
+                        ui.column(10,
+                            ui.div(
+                                    {"style": "padding-bottom: 100px;"},
+                            ui.output_plot("spac_Heatmap", width="100%", height="100vh")
+                            )
+                        )
                     )
                 )
             )
         ),
+
+        # 6. ANNO. VS ANNO. (Sankey, Relational Heatmap) ---------
         ui.nav_panel("Anno. Vs Anno.",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("sk1_anno1", "Select Source Annotation", choices=[]),
-                        ui.input_select("sk1_anno2", "Select Target Annotation", choices=[]),
-                        ui.input_action_button("go_sk1", "Render Plot", class_="btn-success")
-                    ),
-                    ui.column(10,
-                        output_widget("spac_Sankey")
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("sk1_anno1", "Select Source Annotation", choices=[]),
+                            ui.input_select("sk1_anno2", "Select Target Annotation", choices=[]),
+                            ui.input_action_button("go_sk1", "Render Plot", class_="btn-success")
+                        ),
+                        ui.column(10,
+                            ui.div(
+                                output_widget("spac_Sankey"),
+                                style="width:100%; height:80vh;"
+                            )
+                        )
                     )
                 )
             ),
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("rhm_anno1", "Select Source Annotation", choices=[], selected=[]),
-                        ui.input_select("rhm_anno2", "Select Target Annotation", choices=[], selected=[]),
-                        ui.input_action_button("go_rhm1", "Render Plot", class_="btn-success")
-                    ),
-                    ui.column(10,
-                        output_widget("spac_Relational")
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("rhm_anno1", "Select Source Annotation", choices=[], selected=[]),
+                            ui.input_select("rhm_anno2", "Select Target Annotation", choices=[], selected=[]),
+                            ui.input_action_button("go_rhm1", "Render Plot", class_="btn-success"),
+                            ui.div(
+                                    {"style": "padding-top: 20px;"},
+                                    ui.output_ui("download_button_ui_1")
+                                )
+                        ),
+                        ui.column(10,
+                            ui.div(
+                                output_widget("spac_Relational"),
+                                style="width:100%; height:80vh;"
+                            )
+                        )
                     )
                 )
             )
         ),
+
+       # 7. SPATIAL PANEL ---------------------------------------
         ui.nav_panel("Spatial",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("spatial_anno", "Select an Annotation", choices=[]),
-                        ui.input_slider("spatial_slider", "Point Size", min=2, max=10, value=3),
-                        ui.input_checkbox("slide_select_check", "Stratify by Slide", False),
-                        ui.div(id="main-slide_dropdown"),
-                        ui.div(id="main-label_dropdown"),
-                        ui.input_checkbox("region_select_check", "Stratify by Region", False),
-                        ui.div(id="main-region_dropdown"),
-                        ui.div(id="main-region_label_select_dropdown"),
-                        ui.input_action_button("go_sp1", "Render Plot", class_="btn-success")
-                        
-                    ),
-                    ui.column(10,
-                        output_widget("spac_Spatial")
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_radio_buttons("spatial_rb", "Color by:", ["Annotation", "Feature"]),
+                            ui.div(id="main-spatial_dropdown_anno"),
+                            ui.div(id="main-spatial_dropdown_feat"),
+                            ui.div(id="main-spatial_table_dropdown_feat"),
+                            ui.input_slider("spatial_slider", "Point Size", min=2, max=10, value=3),
+                            ui.input_checkbox("slide_select_check", "Stratify by Slide", False),
+                            ui.div(id="main-slide_dropdown"),
+                            ui.div(id="main-label_dropdown"),
+                            ui.input_checkbox("region_select_check", "Stratify by Region", False),
+                            ui.div(id="main-region_dropdown"),
+                            ui.div(id="main-region_label_select_dropdown"),
+                            ui.input_action_button("go_sp1", "Render Plot", class_="btn-success")
+                        ),
+                        ui.column(10,
+                            ui.div(
+                                {"style": "padding-bottom: 20px;"},
+                                output_widget("spac_Spatial"),
+                                style="width:100%; height:80vh;"
+                            )
+                        )
                     )
                 )
-            )),
-        ui.nav_panel("UMAP",    
-            ui.card(
-                ui.row(
-                    ui.column(6,
-                        ui.input_radio_buttons("umap_rb", "Choose one:", ["Annotation", "Feature"]),
-                        ui.input_select("plottype", "Select a plot type", choices=["umap", "pca", "tsne"]),
-                        ui.div(id="main-ump_rb_dropdown_anno"),
-                        ui.div(id="main-ump_rb_dropdown_feat"),
-                        ui.div(id="main-ump_table_dropdown_feat"),
-                        ui.input_slider("umap_slider_1", "Point Size", min=.5, max=10, value=3),
-                        ui.input_action_button("go_umap1", "Render Plot", class_="btn-success"),
-                        ui.output_plot("spac_UMAP")
-                    ),
-                    ui.column(6,
-                        ui.input_radio_buttons("umap_rb2", "Choose one:", ["Annotation", "Feature"]),
-                        ui.input_select("plottype2", "Select a plot type", choices=["umap", "pca", "tsne"]),
-                        ui.div(id="main-ump_rb_dropdown_anno2"),
-                        ui.div(id="main-ump_rb_dropdown_feat2"),
-                        ui.div(id="main-ump_table_dropdown_feat2"),
-                        ui.input_slider("umap_slider_2", "Point Size", min=.5, max=10, value=3),
-                        ui.input_action_button("go_umap2", "Render Plot", class_="btn-success"),
-                        ui.output_plot("spac_UMAP2")
-
-
-
-                )
-                
-            )
-
             )
         ),
+
+        # 8. UMAP PANEL ------------------------------------------
+        ui.nav_panel("UMAP",
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(6,
+                            ui.input_radio_buttons("umap_rb", "Choose one:", ["Annotation", "Feature"]),
+                            ui.input_select("plottype", "Select a plot type", choices=["umap", "pca", "tsne"]),
+                            ui.div(id="main-ump_rb_dropdown_anno"),
+                            ui.div(id="main-ump_rb_dropdown_feat"),
+                            ui.div(id="main-ump_table_dropdown_feat"),
+                            ui.input_slider("umap_slider_1", "Point Size", min=.5, max=10, value=3),
+                            ui.input_action_button("go_umap1", "Render Plot", class_="btn-success"),
+                            ui.output_plot("spac_UMAP", width="100%", height="80vh")
+                        ),
+                        ui.column(6,
+                            ui.input_radio_buttons("umap_rb2", "Choose one:", ["Annotation", "Feature"]),
+                            ui.input_select("plottype2", "Select a plot type", choices=["umap", "pca", "tsne"]),
+                            ui.div(id="main-ump_rb_dropdown_anno2"),
+                            ui.div(id="main-ump_rb_dropdown_feat2"),
+                            ui.div(id="main-ump_table_dropdown_feat2"),
+                            ui.input_slider("umap_slider_2", "Point Size", min=.5, max=10, value=3),
+                            ui.input_action_button("go_umap2", "Render Plot", class_="btn-success"),
+                            ui.output_plot("spac_UMAP2", width="100%", height="80vh")
+                        )
+                    )
+                )
+            )
+        ),
+
+        # 9. SCATTERPLOT PANEL ------------------------------------
         ui.nav_panel("Scatterplot",
-            ui.card(
-                ui.row(
-                    ui.column(2,
-                        ui.input_select("scatter_layer", "Select a Table", choices=[], selected="Original"),
-                        ui.input_select("scatter_x", "Select X Axis", choices=[]),
-                        ui.input_select("scatter_y", "Select Y Axis", choices=[]),
-                        ui.input_checkbox("scatter_color_check", "Color by Feature", value=False),
-                        ui.div(id="main-scatter_dropdown"),
-                        ui.input_action_button("go_scatter", "Render Plot", class_="btn-success")
-                    ),
-                    ui.column(10,
-                        ui.output_plot("spac_Scatter")
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("scatter_layer", "Select a Table", choices=[], selected="Original"),
+                            ui.input_select("scatter_x", "Select X Axis", choices=[]),
+                            ui.input_select("scatter_y", "Select Y Axis", choices=[]),
+                            ui.input_checkbox("scatter_color_check", "Color by Feature", value=False),
+                            ui.div(id="main-scatter_dropdown"),
+                            ui.input_action_button("go_scatter", "Render Plot", class_="btn-success")
+                        ),
+                        ui.column(10,
+                            ui.output_plot("spac_Scatter", width="100%", height="80vh")
+                        )
                     )
                 )
             )
@@ -233,6 +424,28 @@ app_ui = ui.page_fluid(
     )
 )
 
+def get_annotation_label_counts(adata):
+    """
+    Return a dictionary of every annotation (column in adata.obs),
+    where the value is a dict of {label: cell_count}.
+
+    Example structure:
+      {
+        "cell_type": {"T-cell": 100, "B-cell": 80, ...},
+        "condition": {"disease": 120, "healthy": 60, ...},
+        ...
+      }
+    """
+    if adata is None or not hasattr(adata, "obs") or adata.obs.empty:
+        return {}
+
+    annotation_counts = {}
+    for col in adata.obs.columns:
+        # value_counts returns a Series of {label: count}
+        vc = adata.obs[col].value_counts(dropna=False)
+        annotation_counts[col] = vc.to_dict()
+
+    return annotation_counts
 
 def server(input, output, session):
 
@@ -241,13 +454,20 @@ def server(input, output, session):
     # Define a reactive variable to track if data is loaded
     data_loaded = reactive.Value(False)
 
+    # Create a reactive variable for the main data
+    adata_main = reactive.Value(preloaded_data)  # Initialize with preloaded data
+
     @reactive.Effect
     def adata_filter():
         print("Calling Data")
         file_info = input.input_file()
         if not file_info:
-            data_loaded.set(False)  # Set to False if no file is uploaded
-            return
+            # Only set preloaded data if it exists
+            if preloaded_data is not None:
+                adata_main.set(preloaded_data)
+                data_loaded.set(True)
+            else:
+                data_loaded.set(False)
         else:
             file_path = file_info[0]['datapath']
             with open(file_path, 'rb') as file:
@@ -260,7 +480,7 @@ def server(input, output, session):
             data_loaded.set(True)  # Set to True if a file is successfully uploaded
 
 
-        
+
 
 
     # Create a reactive variable for the main data
@@ -280,6 +500,11 @@ def server(input, output, session):
     layers_names = reactive.Value(None)
     var_names = reactive.Value(None)
     uns_names = reactive.Value(None)
+    df_heatmap = reactive.Value(None)
+    df_relational = reactive.Value(None)
+    df_boxplot = reactive.Value(None)
+    df_histogram2 = reactive.Value(None)
+    df_histogram1 = reactive.Value(None)
 
     @reactive.Effect
     def update_parts():
@@ -296,27 +521,27 @@ def server(input, output, session):
                 obs_data.set(adata.obs)
             else:
                 obs_data.set(None)
-                
+
             if hasattr(adata, 'obsm'):
                 obsm_data.set(adata.obsm)
             else:
                 obsm_data.set(None)
-                
+
             if hasattr(adata, 'layers'):
                 layers_data.set(adata.layers)
             else:
                 layers_data.set(None)
-                
+
             if hasattr(adata, 'var'):
                 var_data.set(adata.var)
             else:
                 var_data.set(None)
-                
+
             if hasattr(adata, 'uns'):
                 uns_data.set(adata.uns)
             else:
                 uns_data.set(None)
-                
+
             shape_data.set(adata.shape)
 
             if hasattr(adata, 'obs'):
@@ -361,66 +586,87 @@ def server(input, output, session):
     @render.text
     def print_obs_names():
         obs = obs_names.get()
+        if not obs:
+            return "Annotations: None"
         if obs is not None:
             if len(obs) > 1:
                 obs_str = ", ".join(obs)
             else:
                 obs_str = obs[0] if obs else ""
-            return "Obs: " + obs_str
+            return "Annotations: " + obs_str
+        else:
+            return "Empty"
         return
 
     @reactive.Calc
     @render.text
     def print_obsm_names():
         obsm = obsm_names.get()
+        if not obsm:
+            return "Associated Tables: None"
         if obsm is not None:
             if len(obsm) > 1:
                 obsm_str = ", ".join(obsm)
             else:
                 obsm_str = obsm[0] if obsm else ""
-            return "Obsm: " + obsm_str
+            return "Associated Tables: " + obsm_str
+        else:
+            return "Empty"
         return
 
     @reactive.Calc
     @render.text
     def print_layers_names():
         layers = layers_names.get()
-        if layers is not None:
-            if len(layers) > 1:
-                layers_str = ", ".join(layers)
-            elif len(layers) > 1:
-                layers_str = layers[0] if layers else ""
-            return "Layers: " + layers_str
-        return
+        # If there are no layers at all, just say "None"
+        if not layers:
+            return "Tables: None"
+        # If there's more than one layer
+        if len(layers) > 1:
+            layers_str = ", ".join(layers)
+        # If there's exactly one layer
+        else:
+            layers_str = layers[0]
+        return "Tables: " + layers_str
 
     @reactive.Calc
     @render.text
     def print_uns_names():
         uns = uns_names.get()
+        if not uns:
+            return "Unstructured Data: None"
         if uns is not None:
             if len(uns) > 1:
                 uns_str = ", ".join(uns)
             else:
                 uns_str = uns[0] if uns else ""
-            return "Uns: " + uns_str
+            return "Unstructured Data: " + uns_str
         return
-    
+
     @reactive.Calc
-    @render.text 
+    @render.text
     def print_rows():
         shape = shape_data.get()
+        if not shape:
+            return "Number of Cells: None"
         if shape is not None:
-            return "# of Rows: " + str(shape[0])
-        return 
+            return "Number of Cells: " + str(shape[0])
+        else:
+            return "Empty"
+        return
 
     @reactive.Calc
     @render.text
     def print_columns():
         shape = shape_data.get()
+        if not shape:
+            return "Number of Features: None"
         if shape is not None:
-            return "# of Columns: " + str(shape[1])
-        return 
-    
+            return "Number of Features: " + str(shape[1])
+        else:
+            return "Empty"
+        return
+
 
 
     @reactive.Effect
@@ -428,15 +674,13 @@ def server(input, output, session):
         choices = var_names.get()
         ui.update_select("h1_feat", choices=choices)
         ui.update_select("umap_feat", choices=choices)
-        ui.update_select("bp1_features", choices=choices)
-        ui.update_select("bp2_features", choices=choices)
+        ui.update_select("bp_features", choices=choices)
 
 
     @reactive.Effect
     def update_select_input_anno():
         choices = obs_names.get()
-        ui.update_select("bp1_anno", choices=choices)
-        ui.update_select("bp2_anno", choices=choices)
+        ui.update_select("bp_anno", choices=choices)
         ui.update_select("h2_anno", choices=choices)
         ui.update_select("hm1_anno", choices=choices)
         ui.update_select("sk1_anno1", choices=choices)
@@ -444,7 +688,7 @@ def server(input, output, session):
         ui.update_select("rhm_anno1", choices=choices)
         ui.update_select("rhm_anno2", choices=choices)
         ui.update_select("spatial_anno", choices=choices)
-        
+
         return
 
     @reactive.Effect
@@ -452,8 +696,7 @@ def server(input, output, session):
         if layers_names.get() is not None:
             new_choices = layers_names.get() + ["Original"]
             ui.update_select("h1_layer", choices=new_choices)
-            ui.update_select("bp1_layer", choices=new_choices)
-            ui.update_select("bp2_layer", choices=new_choices)
+            ui.update_select("bp_layer", choices=new_choices)
             ui.update_select("hm1_layer", choices=new_choices)
             ui.update_select("scatter_layer", choices=new_choices)
         return
@@ -461,8 +704,7 @@ def server(input, output, session):
     def update_select_input_anno_bp():
         if obs_names.get() is not None:
             new_choices = obs_names.get() + ["No Annotation"]
-            ui.update_select("bp1_anno", choices=new_choices)
-            ui.update_select("bp2_anno", choices=new_choices)
+            ui.update_select("bp_anno", choices=new_choices)
 
     @reactive.Effect
     def update_select_input_layer_scatter():
@@ -471,13 +713,12 @@ def server(input, output, session):
         ui.update_select("scatter_y", choices=choices)
         return
 
-    
+
     @reactive.Effect
     def update_boxplot_selectize():
         selected_names=var_names.get()
         if selected_names is not None:
-            ui.update_selectize("bp1_features", selected=selected_names[:2])
-            ui.update_selectize("bp2_features", selected=selected_names[:2])
+            ui.update_selectize("bp_features", selected=selected_names[:2])
             return
     @reactive.Effect
     def update_relational_select():
@@ -486,6 +727,50 @@ def server(input, output, session):
             ui.update_selectize("rhm_anno1", selected=selected_names[0])
             ui.update_selectize("rhm_anno2", selected=selected_names[1])
         return
+
+      
+    @output
+    @render.ui
+    def annotation_labels_display():
+        """
+        1) Retrieve ALL annotations (via get_annotation_label_counts).
+        2) Within each annotation, keep only the top 5 labels (sorted by count).
+        3) Display them in separate cards, each card listing the top 5 labels.
+        """
+        adata = adata_main.get()  # your reactive AnnData
+        annotation_counts = get_annotation_label_counts(adata)
+
+        # If no data, show a simple message
+        if not annotation_counts:
+            return ui.tags.div("No annotations or data found.")
+
+        # Build a list of annotation cards
+        container = []
+        for annotation_name, label_counts_dict in annotation_counts.items():
+            # Sort labels by count (descending) and take top 5
+            sorted_label_counts = sorted(
+                label_counts_dict.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:10]
+
+            # Build bullet points of "Label (count cells)"
+            list_items = [
+                ui.tags.li(f"{label} ({count} cells)")
+                for label, count in sorted_label_counts
+            ]
+
+            # Wrap it in a card for this annotation
+            annotation_card = ui.card(
+                ui.h5(annotation_name),
+                ui.tags.ul(*list_items),
+                style="margin-bottom: 15px;"
+            )
+            container.append(annotation_card)
+
+        # Return them as one TagList so each annotation is its own card
+        return ui.TagList(*container)
+
 
     @reactive.Effect
     def update_select_input_anno():
@@ -560,10 +845,10 @@ def server(input, output, session):
         adata = adata_main.get()
         if adata is not None:
             annotation = input.subset_anno_select()
-            labels = input.subset_label_select()
+            labels = list(input.subset_label_select())
 
             # Perform the subsetting
-            adata_subset = adata[adata.obs[annotation].isin(labels)].copy()
+            adata_subset = spac.data_utils.select_values(adata, annotation=annotation, values=labels)
 
             # Update the main data
             adata_main.set(adata_subset)
@@ -649,22 +934,62 @@ def server(input, output, session):
         if adata is not None:
             if input.h1_group_by_check() is not True:
                 if input.h1_layer() != "Original":
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), log_scale=(btn_log_x, btn_log_y))
+                    fig1, ax, df = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), x_log_scale=btn_log_x, y_log_scale=btn_log_y).values()
+                    ax.tick_params(axis='x', rotation=input.feat_slider(), labelsize=10)
+                    df_histogram1.set(df)
                     return fig1
                 else:
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), log_scale=(btn_log_x, btn_log_y))
+                    fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), x_log_scale=btn_log_x, y_log_scale=btn_log_y).values()
+                    ax.tick_params(axis='x', rotation=input.feat_slider(), labelsize=10)
+                    df_histogram1.set(df)
                     return fig1
 
             if input.h1_group_by_check() is not False:
                 if input.h1_layer() != "Original":
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
+                    if input.h1_together_check() is  not False:
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y, multiple=input.h1_together_drop()).values()
+                        ax.tick_params(axis='x', rotation=input.feat_slider(), labelsize=10)
+                        df_histogram1.set(df)
+                        return fig1
+                    else:
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), layer=input.h1_layer(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y).values()
+                        axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
+                        for ax in axes:
+                            ax.tick_params(axis='x', rotation=input.feat_slider(), labelsize=10)
+                            df_histogram1.set(df)
+                        return fig1
                 else:
-                    fig1 = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), log_scale=(btn_log_x, btn_log_y))
-                    return fig1
+                    if input.h1_together_check() is  not False:
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y, multiple=input.h1_together_drop()).values()
+                        ax.tick_params(axis='x', rotation=input.feat_slider(), labelsize=10)
+                        df_histogram1.set(df)
+                        return fig1
+                    else:
+                        fig1, ax, df  = spac.visualization.histogram(adata, feature=input.h1_feat(), group_by=input.h1_anno(), together=input.h1_together_check(), x_log_scale=btn_log_x, y_log_scale=btn_log_y).values()
+                        axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
+                        for ax in axes:
+                            ax.tick_params(axis='x', rotation=input.feat_slider(), labelsize=10)
+                            df_histogram1.set(df)
+                        return fig1
         return None
 
     histogram_ui_initialized = reactive.Value(False)
+
+    @session.download(filename="feautures_histogram_data.csv")
+    def download_histogram1_df():
+        df = df_histogram1.get()
+        if df is not None:
+            csv_string = df.to_csv(index=False)
+            csv_bytes = csv_string.encode("utf-8")
+            return csv_bytes, "text/csv"
+        return None
+
+    @render.ui
+    @reactive.event(input.go_h1, ignore_none=True)
+    def download_histogram1_button_ui():
+        if df_histogram1.get() is not None:
+            return ui.download_button("download_histogram1_df", "Download Data", class_="btn-warning")
+        return None
 
     @reactive.effect
     def histogram_reactivity():
@@ -679,76 +1004,294 @@ def server(input, output, session):
                 where="beforeEnd",
             )
 
-            together_check = ui.input_checkbox("h1_together_check", "Plot Together", value=False)
+            together_check = ui.input_checkbox("h1_together_check", "Plot Together", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check"}, together_check),
                 selector="#main-h1_check",
                 where="beforeEnd",
             )
+
             histogram_ui_initialized.set(True)
 
         elif not btn and ui_initialized:
             ui.remove_ui("#inserted-dropdown")
             ui.remove_ui("#inserted-check")
+            ui.remove_ui("#inserted-dropdown_together")
             histogram_ui_initialized.set(False)
 
-    @output
-    @render.plot
-    @reactive.event(input.go_bp1, ignore_none=True)
-    def spac_Boxplot_1():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None and adata.var is not None:
-            if input.bp1_layer() != "Original" and input.bp1_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), layer=input.bp1_layer(), features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() == "Original" and input.bp1_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp1_anno(), features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() != "Original" and input.bp1_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, layer=input.bp1_layer(), features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp1_layer() == "Original" and input.bp1_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, features=list(input.bp1_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-        return None
+    @reactive.effect
+    @reactive.event(input.h1_together_check)
+    def update_stack_type_dropdown():
+        if input.h1_together_check():
+            dropdown_together = ui.input_select("h1_together_drop", "Select Stack Type", 
+                                                choices=['stack', 'layer', 'dodge', 'fill'], 
+                                                selected='stack')
+            ui.insert_ui(
+                ui.div({"id": "inserted-dropdown_together"}, dropdown_together),
+                selector="#main-h1_together_drop",
+                where="beforeEnd",)      
+        else:
+            ui.remove_ui("#inserted-dropdown_together")
+
+
 
     @output
-    @render.plot
-    @reactive.event(input.go_bp2, ignore_none=True)
-    def spac_Boxplot_2():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
-        if adata is not None and adata.var is not None:
-            if input.bp2_layer() != "Original" and input.bp2_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), layer=input.bp2_layer(), features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() == "Original" and input.bp2_anno() != "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, annotation=input.bp2_anno(), features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() != "Original" and input.bp2_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, layer=input.bp2_layer(), features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
-            if input.bp2_layer() == "Original" and input.bp2_anno() == "No Annotation":
-                fig,ax = spac.visualization.boxplot(adata, features=list(input.bp2_features()))
-                return ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    @render_widget
+    @reactive.event(input.go_bp, ignore_none=True)
+    def spac_Boxplot():
+        """
+        This function produces an interactive (Plotly) boxplot figure.
+        """
+        # Only run this function if both conditions are met
+
+        if not input.bp_output_type():
+            return None
+
+        else: 
+
+            adata = ad.AnnData(
+                X=X_data.get(), 
+                obs=pd.DataFrame(obs_data.get()), 
+                var=pd.DataFrame(var_data.get()), 
+                layers=layers_data.get(), 
+                dtype=X_data.get().dtype
+            )
+
+            def on_outlier_check():
+                selected_choice = input.bp_outlier_check()
+                return None if selected_choice == "none" else selected_choice
+
+            def on_orient_check():
+                return "h" if input.bp_orient() else "v"
+
+            # Proceed only if adata is valid
+            if adata is not None and adata.var is not None:
+
+                # Four scenarios for layer/annotation
+                if input.bp_layer() != "Original" and input.bp_anno() != "No Annotation":
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata, 
+                        annotation=input.bp_anno(), 
+                        layer=input.bp_layer(), 
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="interactive"
+                    ).values()
+                elif input.bp_layer() == "Original" and input.bp_anno() != "No Annotation":
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata, 
+                        annotation=input.bp_anno(), 
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="interactive"
+                    ).values()
+                elif input.bp_layer() != "Original" and input.bp_anno() == "No Annotation":
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata, 
+                        layer=input.bp_layer(), 
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="interactive"
+                    ).values()
+                else:  # input.bp_layer() == "Original" and input.bp_anno() == "No Annotation"
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata,
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="interactive"
+
+                    ).values()
+
+                # Return the interactive Plotly figure object
+                df_boxplot.set(df)
+                print(type(fig))
+                return fig
         return None
 
-    
+
+    @session.download(filename="boxplot_data.csv")
+    def download_boxplot():
+        df = df_boxplot.get()
+        if df is not None:
+            csv_string = df.to_csv(index=False)
+            csv_bytes = csv_string.encode("utf-8")
+            return csv_bytes, "text/csv"
+        return None
+
+
+    @render.ui
+    @reactive.event(input.go_bp, ignore_none=True)
+    def download_button_ui1():
+        if df_boxplot.get() is not None:
+            return ui.download_button("download_boxplot", "Download Data", class_="btn-warning")
+        return None
+
+
+
+
+    @output
+    @render_widget
+    @reactive.event(input.go_bp, ignore_none=True)
+    def boxplot_static():
+        """
+        This function produces a static (PNG) boxplot image.
+        """
+
+         # Only run this function if both conditions are met
+
+        if input.bp_output_type():
+            return None
+
+        else: 
+
+            adata = ad.AnnData(
+                X=X_data.get(), 
+                obs=pd.DataFrame(obs_data.get()), 
+                var=pd.DataFrame(var_data.get()), 
+                layers=layers_data.get(), 
+                dtype=X_data.get().dtype
+            )
+
+            def on_outlier_check():
+                selected_choice = input.bp_outlier_check()
+                return None if selected_choice == "none" else selected_choice
+
+            def on_orient_check():
+                return "h" if input.bp_orient() else "v"
+
+            # Proceed only if adata is valid
+            if adata is not None and adata.var is not None:
+                
+                # Four scenarios for layer/annotation
+                if input.bp_layer() != "Original" and input.bp_anno() != "No Annotation":
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata, 
+                        annotation=input.bp_anno(), 
+                        layer=input.bp_layer(), 
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="static"
+                    ).values()
+                elif input.bp_layer() == "Original" and input.bp_anno() != "No Annotation":
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata, 
+                        annotation=input.bp_anno(), 
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="static"
+                    ).values()
+                elif input.bp_layer() != "Original" and input.bp_anno() == "No Annotation":
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata, 
+                        layer=input.bp_layer(), 
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="static"
+                    ).values()
+                else:  # input.bp_layer() == "Original" and input.bp_anno() == "No Annotation"
+                    fig, df = spac.visualization.boxplot_interactive(
+                        adata,
+                        features=list(input.bp_features()),
+                        showfliers=on_outlier_check(),
+                        log_scale=input.bp_log_scale(),
+                        orient=on_orient_check(),
+                        figure_height=3, 
+                        figure_width=4.8, 
+                        figure_type="static"
+                    ).values()
+
+                return fig
+
+        return None
 
     @output
     @render.plot
     @reactive.event(input.go_h2, ignore_none=True)
     def spac_Histogram_2():
         adata = adata_main.get()
-        if adata is not None:
-            if input.h2_group_by_check() is not False:
-                fig1 = spac.visualization.histogram(adata, annotation=input.h2_anno(), group_by=input.h2_anno_1(), together=input.h2_together_check())
-                return fig1
+        if adata is None:
+            return None
+
+        # 1) If "Group By" is UNCHECKED, show a simple annotation histogram
+        if not input.h2_group_by_check():
+            fig, ax, df = spac.visualization.histogram(
+                adata,
+                annotation=input.h2_anno()
+            ).values()
+            df_histogram2.set(df) 
+            ax.tick_params(axis='x', rotation=input.anno_slider(), labelsize=10)
+            return fig
+
+        # 2) If "Group By" is CHECKED, we must always supply a valid multiple parameter
+        else:
+            # If user also checked "Plot Together", use their selected stack type
+            if input.h2_together_check():
+                multiple_param = input.h2_together_drop()  # e.g. 'stack', 'dodge', etc.
+                together_flag = True
             else:
-                fig = spac.visualization.histogram(adata, annotation=input.h2_anno())
-                return fig
-        return None    
-    
+                # If grouping by but not "plot together", pick a default layout
+                multiple_param = "layer"  # or 'dodge' or any valid string
+                together_flag = False
+
+            fig, ax, df = spac.visualization.histogram(
+                adata,
+                annotation=input.h2_anno(),
+                group_by=input.h2_anno_1(),
+                together=together_flag,
+                multiple=multiple_param
+            ).values()
+            df_histogram2.set(df) 
+            axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
+            for ax in axes:
+                ax.tick_params(axis='x', rotation=input.anno_slider(), labelsize=10)
+            return fig
+        return None
+
     histogram2_ui_initialized = reactive.Value(False)
+
+    @render.ui
+    @reactive.event(input.go_h2, ignore_none=True)
+    def download_histogram_button_ui():
+        if df_histogram2.get() is not None:
+            return ui.download_button("download_histogram2_df", "Download Data", class_="btn-warning")
+        return None
+
+    @session.download(filename="annotation_histogram_data.csv")
+    def download_histogram2_df():
+        df = df_histogram2.get()
+        if df is not None:
+            csv_string = df.to_csv(index=False)
+            csv_bytes = csv_string.encode("utf-8")
+            return csv_bytes, "text/csv"
+        return None
 
     @reactive.effect
     def histogram_reactivity_2():
@@ -763,7 +1306,7 @@ def server(input, output, session):
                 where="beforeEnd",
             )
 
-            together_check = ui.input_checkbox("h2_together_check", "Plot Together", value=False)
+            together_check = ui.input_checkbox("h2_together_check", "Plot Together", value=True)
             ui.insert_ui(
                 ui.div({"id": "inserted-check-1"}, together_check),
                 selector="#main-h2_check",
@@ -774,7 +1317,22 @@ def server(input, output, session):
         elif not btn and ui_initialized:
             ui.remove_ui("#inserted-dropdown-1")
             ui.remove_ui("#inserted-check-1")
+            ui.remove_ui("#inserted-dropdown_together-1")
             histogram2_ui_initialized.set(False)
+    
+    @reactive.effect
+    @reactive.event(input.h2_together_check)
+    def update_stack_type_dropdown():
+        if input.h2_together_check():
+            dropdown_together = ui.input_select("h2_together_drop", "Select Stack Type", 
+                                                choices=['stack', 'layer', 'dodge', 'fill'], 
+                                                selected='stack')
+            ui.insert_ui(
+                ui.div({"id": "inserted-dropdown_together-1"}, dropdown_together),
+                selector="#main-h2_together_drop",
+                where="beforeEnd",)      
+        else:
+            ui.remove_ui("#inserted-dropdown_together-1")
 
     @output
     @render.plot
@@ -782,22 +1340,39 @@ def server(input, output, session):
     def spac_Heatmap():
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
         if adata is not None:
+            vmin = input.min_select()
+            vmax = input.max_select()  
+            cmap = input.hm1_cmap()  # Get the selected color map from the dropdown 
+            kwargs = {"vmin": vmin,"vmax": vmax,} 
+
             if input.dendogram() is not True:
                 if input.hm1_layer() != "Original":
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None)
-                    return fig
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, **kwargs)
                 else:
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None)
-                    return fig
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, **kwargs)
             elif input.dendogram() is not False:
-                cluster_annotations = input.h2_anno_dendro()  
-                cluster_features = input.h2_feat_dendro()  
+                cluster_annotations = input.h2_anno_dendro()
+                cluster_features = input.h2_feat_dendro()
                 if input.hm1_layer() != "Original":
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
-                    return fig
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=input.hm1_layer(), z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features, **kwargs)
                 else:
-                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features)
-                    return fig
+                    df, fig, ax = spac.visualization.hierarchical_heatmap(adata, annotation=input.hm1_anno(), layer=None, z_score=None, cluster_annotations=cluster_annotations, cluster_feature=cluster_features, **kwargs)
+
+            if cmap != "viridis":  # Only update if a non-default color map is selected
+                fig.ax_heatmap.collections[0].set_cmap(cmap)
+
+            df_heatmap.set(df)
+            
+            # Rotate x-axis labels
+            fig.ax_heatmap.set_xticklabels(
+                fig.ax_heatmap.get_xticklabels(),
+                rotation=input.hm_x_label_rotation(),  # degrees
+                horizontalalignment='right'
+            )
+            # fig is a seaborn.matrix.ClusterGrid
+            fig.fig.subplots_adjust(bottom=0.4)
+            fig.fig.subplots_adjust(left=0.1)
+            return fig
 
         return None
 
@@ -829,6 +1404,52 @@ def server(input, output, session):
             ui.remove_ui("#inserted-check1")
             heatmap_ui_initialized.set(False)
 
+    @session.download(filename="heatmap_data.csv")
+    def download_df():
+        df = df_heatmap.get()
+        if df is not None:
+            csv_string = df.to_csv(index=False)
+            csv_bytes = csv_string.encode("utf-8")
+            return csv_bytes, "text/csv"
+        return None
+
+    @render.ui
+    @reactive.event(input.go_hm1, ignore_none=True)
+    def download_button_ui():
+        if df_heatmap.get() is not None:
+            return ui.download_button("download_df", "Download Data", class_="btn-warning")
+        return None
+
+    @reactive.effect
+    @reactive.event(input.hm1_layer)
+    def update_min_max():
+        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), var=pd.DataFrame(var_data.get()), layers=layers_data.get())
+        if input.hm1_layer() == "Original":
+            layer_data = adata.X
+        else:
+            layer_data = adata.layers[input.hm1_layer()]
+        mask = adata.obs[input.hm1_anno()].notna()
+        layer_data = layer_data[mask]
+        min_val = round(float(np.min(layer_data)), 2)
+        max_val = round(float(np.max(layer_data)), 2)
+
+        ui.remove_ui("#inserted-min_num")
+        ui.remove_ui("#inserted-max_num")
+
+        min_num = ui.input_numeric("min_select", "Minimum", min_val, min=min_val, max=max_val)
+        ui.insert_ui(
+            ui.div({"id": "inserted-min_num"}, min_num),
+            selector="#main-min_num",
+            where="beforeEnd",
+        )
+        
+        max_num = ui.input_numeric("max_select", "Maximum", max_val, min=min_val, max=max_val)
+        ui.insert_ui(
+            ui.div({"id": "inserted-max_num"}, max_num),
+            selector="#main-max_num",
+            where="beforeEnd",
+        )
+
     @output
     @render_widget
     @reactive.event(input.go_sk1, ignore_none=True)
@@ -845,8 +1466,25 @@ def server(input, output, session):
     def spac_Relational():
         adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()))
         if adata is not None:
-            fig = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
-            return fig
+            result = spac.visualization.relational_heatmap(adata, source_annotation=input.rhm_anno1(), target_annotation=input.rhm_anno2())
+            df_relational.set(result['data'])
+            return result['figure']
+        return None
+
+    @session.download(filename="relational_data.csv")
+    def download_df_1():
+        df = df_relational.get()
+        if df is not None:
+            csv_string = df.to_csv(index=False)
+            csv_bytes = csv_string.encode("utf-8")
+            return csv_bytes, "text/csv"
+        return None
+
+    @render.ui
+    @reactive.event(input.go_rhm1, ignore_none=True)
+    def download_button_ui_1():
+        if df_relational.get() is not None:
+            return ui.download_button("download_df_1", "Download Data", class_="btn-warning")
         return None
 
     @output
@@ -867,7 +1505,7 @@ def server(input, output, session):
                 out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype(), annotation=input.umap_rb_anno(), point_size=point_size)
                 return out1
         return None
-    
+
     # Track the UI state
     umap_annotation_initialized = reactive.Value(False)
     umap_feature_initialized = reactive.Value(False)
@@ -956,7 +1594,7 @@ def server(input, output, session):
                 out1 = spac.visualization.dimensionality_reduction_plot(adata, method=input.plottype2(), annotation=input.umap_rb_anno2(), point_size=point_size_2)
                 return out1
         return None
-    
+
     # Track the UI state
     umap2_annotation_initialized = reactive.Value(False)
     umap2_feature_initialized = reactive.Value(False)
@@ -1090,46 +1728,111 @@ def server(input, output, session):
             labels = adata.obs[selected_anno].unique().tolist()
             ui.update_select("region_label_select", choices=labels)
 
-          
-    
+
+
 
     @output
     @render_widget
     @reactive.event(input.go_sp1, ignore_none=True)
     def spac_Spatial():
-        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), obsm=obsm_data.get(), dtype=X_data.get().dtype)
+        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get(), dtype=X_data.get().dtype, layers=layers_data.get())
         slide_check = input.slide_select_check()
         region_check = input.region_select_check()
         if adata is not None:
             if slide_check is False and region_check is False:
-                out = spac.visualization.interative_spatial_plot(adata, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-                out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                return out
-            if slide_check is True and region_check is False:
-
+                adata_subset = adata
+            elif slide_check is True and region_check is False:
                 adata_subset = adata[adata.obs[input.slide_select_drop()] == input.slide_select_label()].copy()
-                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-                out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                return out
-            if slide_check is True and region_check is True:
-
-                adata_subset = adata[(adata.obs[input.slide_select_drop()] == input.slide_select_label()) & (adata.obs[input.region_select_drop()] == input.region_label_select())].copy()
-                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-                out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                return out
-            if slide_check is False and region_check is True:
-
-                adata_subset = adata[(adata.obs[input.region_select_drop()] == input.region_label_select())].copy()
-                out = spac.visualization.interative_spatial_plot(adata_subset, annotations=input.spatial_anno(), figure_width=4, figure_height=4, dot_size=input.spatial_slider())
-                out.update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                out.update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
-                return out
+            elif slide_check is True and region_check is True:
+                adata_subset = adata[
+                    (adata.obs[input.slide_select_drop()] == input.slide_select_label()) &
+                    (adata.obs[input.region_select_drop()] == input.region_label_select())
+                ].copy()
+            elif slide_check is False and region_check is True:
+                adata_subset = adata[adata.obs[input.region_select_drop()] == input.region_label_select()].copy()
+            else:
+                return None
+            if input.spatial_rb() == "Feature":
+                if "spatial_feat" not in input or input.spatial_feat() is None:
+                    return None
+                layer = None if input.spatial_layer() == "Original" else input.spatial_layer()
+                out = spac.visualization.interactive_spatial_plot(
+                    adata_subset,
+                    feature=input.spatial_feat(),
+                    layer=layer,
+                    figure_width=5.5,
+                    figure_height=5,
+                    dot_size=input.spatial_slider()
+                )
+            elif input.spatial_rb() == "Annotation":
+                if "spatial_anno" not in input or input.spatial_anno() is None:
+                    return None
+                out = spac.visualization.interactive_spatial_plot(
+                    adata_subset,
+                    annotations=input.spatial_anno(),
+                    figure_width=5.5,
+                    figure_height=5,
+                    dot_size=input.spatial_slider()
+                )
+            else:
+                return None
+            out[0]['image_object'].update_xaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
+            out[0]['image_object'].update_yaxes(showticklabels=True, ticks="outside", tickwidth=2, ticklen=10)
+            return out[0]['image_object']
 
         return None
-    
+
+    #Track UI State 
+    spatial_annotation_initialized = reactive.Value(False)
+    spatial_feature_initialized = reactive.Value(False)
+   
+    @reactive.effect
+    def spatial_reactivity():
+        flipper = data_loaded.get()
+        if flipper is not False:
+            btn = input.spatial_rb()
+
+            if btn == "Annotation":
+                if not spatial_annotation_initialized.get():
+                    dropdown = ui.input_select(
+                        "spatial_anno", "Select an Annotation", choices=obs_names.get()
+                    )
+                    ui.insert_ui(
+                        ui.div({"id": "inserted-spatial_dropdown_anno"}, dropdown),
+                        selector="#main-spatial_dropdown_anno",
+                        where="beforeEnd"
+                    )
+                    spatial_annotation_initialized.set(True)
+
+                if spatial_feature_initialized.get():
+                    ui.remove_ui("#inserted-spatial_dropdown_feat")
+                    ui.remove_ui("#inserted-spatial_table")
+                    spatial_feature_initialized.set(False)
+
+            elif btn == "Feature":
+                if not spatial_feature_initialized.get():
+                    dropdown = ui.input_select(
+                        "spatial_feat", "Select a Feature", choices=var_names.get()
+                    )
+                    ui.insert_ui(
+                        ui.div({"id": "inserted-spatial_dropdown_feat"}, dropdown),
+                        selector="#main-spatial_dropdown_feat",
+                        where="beforeEnd"
+                    )
+                    table_select = ui.input_select(
+                        "spatial_layer", "Select a Table", choices=layers_names.get() + ["Original"], selected="Original"
+                    )
+                    ui.insert_ui(
+                        ui.div({"id": "inserted-spatial_table"}, table_select),
+                        selector="#main-spatial_table_dropdown_feat",
+                        where="beforeEnd"
+                    )
+                    spatial_feature_initialized.set(True)
+
+                if spatial_annotation_initialized.get():
+                    ui.remove_ui("#inserted-spatial_dropdown_anno")
+                    spatial_annotation_initialized.set(False)
+
     #@output
     #@render.plot
     #def spac_Neighborhood():
@@ -1150,7 +1853,7 @@ def server(input, output, session):
 
             return dict
         return []
-    
+
     @reactive.Calc
     def get_scatterplot_coordinates_x():
         adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), layers=layers_data.get())
@@ -1172,10 +1875,10 @@ def server(input, output, session):
             new_layer = adata.layers[layer_selection]
             x_coords = new_layer[:, column_index]  # Extract the column corresponding to the feature
             return x_coords
-        
+
         return None
 
-    
+
 
     @reactive.Calc
     def get_scatterplot_coordinates_y():
@@ -1198,9 +1901,9 @@ def server(input, output, session):
             new_layer = adata.layers[layer_selection]
             y_coords = new_layer[:, column_index]  # Extract the column corresponding to the feature
             return y_coords
-        
+
         return None
-    
+
 
     # Track the UI state for scatterplot dropdowns
     scatter_ui_initialized = reactive.Value(False)
@@ -1228,9 +1931,9 @@ def server(input, output, session):
         column_index = adata.var_names.get_loc(input.scatter_color())
         color_values = adata.X[:, column_index]
         return color_values
-        
 
-    
+
+
     @output
     @render.plot
     @reactive.event(input.go_scatter, ignore_none=True)
@@ -1244,7 +1947,6 @@ def server(input, output, session):
         elif btn is True:
             fig1, ax1 = spac.visualization.visualize_2D_scatter(x_points,y_points, labels=get_color_values())
             return ax1
-
 
 
     @output
@@ -1261,7 +1963,8 @@ def server(input, output, session):
                     return fig
   
 
-    
+
+
 
 
 app = App(app_ui, server)
