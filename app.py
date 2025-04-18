@@ -420,7 +420,44 @@ app_ui = ui.page_fluid(
                     ),
                 ),
             )
-        )
+        ),
+
+        # 10. Ripley L PANEL (Plot Ripley’s L statistic) --------
+        ui.nav_panel("Ripley L",
+            ui.card({"style": "width:100%;"},
+                ui.column(12,
+                    ui.row(
+                        ui.column(2,
+                            ui.input_select("rl_anno", "Select an Annotation", choices=[]),
+                            ui.input_selectize("rl_label", "Select two Phenotypes", multiple=True, choices=[], selected=[]),
+                            ui.input_checkbox("region_check_rl", "Stratify by Regions?", False),
+                            ui.panel_conditional(
+                                "input.region_check_rl === true",
+                                ui.input_select("region_select_rl", "Select Region Annotation", choices=[]),
+                                ui.input_selectize("rl_region_labels", "Select Regions", multiple=True, choices=[], selected=[]),
+                            ),
+                            ui.input_checkbox("sim_check_rl", "Simulations", False),
+                            ui.panel_conditional(
+                                "input.sim_check_rl === true",
+                                ui.input_slider("num_sim_rl", "Number of simulations", min=1, max=100, value=1),
+                                ui.input_slider("seed_rl", "Seed for Simulation Reproducibility", min=0, max=100, value=42)
+                            ),
+                            ui.input_action_button("go_rl", "Render Plot", class_="btn-success"),
+                            ui.div(
+                                {"style": "padding-top: 20px;"},
+                                ui.output_ui("download_button_ui_rl")
+                                ),
+                        ),
+                        ui.column(10,
+                            ui.div(
+                            {"style": "padding-bottom: 100px;"},
+                            ui.output_plot("spac_ripley_l_plot", width="100%", height="80vh")
+                            )
+                        )
+                    )
+                )
+            )
+        ),
     )
 )
 
@@ -505,6 +542,7 @@ def server(input, output, session):
     df_boxplot = reactive.Value(None)
     df_histogram2 = reactive.Value(None)
     df_histogram1 = reactive.Value(None)
+    df_ripley = reactive.Value(None)
 
     @reactive.Effect
     def update_parts():
@@ -688,7 +726,8 @@ def server(input, output, session):
         ui.update_select("rhm_anno1", choices=choices)
         ui.update_select("rhm_anno2", choices=choices)
         ui.update_select("spatial_anno", choices=choices)
-
+        ui.update_select("rl_anno", choices=choices)
+        ui.update_select("region_select_rl", choices=choices)
         return
 
     @reactive.Effect
@@ -727,7 +766,23 @@ def server(input, output, session):
             ui.update_selectize("rhm_anno1", selected=selected_names[0])
             ui.update_selectize("rhm_anno2", selected=selected_names[1])
         return
+    @reactive.Effect
+    def update_rl_selectize():
+        adata = adata_main.get()  # Reactive AnnData
+        label_counts =  get_annotation_label_counts(adata)
+        anno_name = input.rl_anno() # Selected annotation column
+        region_name = input.region_select_rl() # Selected region column
 
+        if anno_name is None or anno_name not in label_counts:
+            return
+        if region_name is None or region_name not in label_counts:
+            return
+        pheno_label_list = list(map(str, label_counts[anno_name].keys()))
+        region_label_list =list(map(str, label_counts[region_name].keys())) 
+        if label_counts is not None:
+            ui.update_selectize("rl_label", selected=pheno_label_list[:2], choices=pheno_label_list)
+            ui.update_selectize("rl_region_labels", selected=region_label_list[0], choices=region_label_list)
+            return
       
     @output
     @render.ui
@@ -1961,12 +2016,69 @@ def server(input, output, session):
             else:
                     fig = spac.visualization.nearest_neighbor(adata, annotation)
                     return fig
-  
 
+    @output
+    @render.plot
+    @reactive.event(input.go_rl, ignore_none=True)
+    def spac_ripley_l_plot():
+        adata = ad.AnnData(X=X_data.get(), var=pd.DataFrame(var_data.get()), obsm=obsm_data.get(), obs=obs_data.get())
+        annotation = input.rl_anno()
+        if annotation in adata.obs.columns:
+            adata.obs[annotation] = adata.obs[annotation].astype(str)
+        phenotypes = list(map(str, input.rl_label()))
+        region_anno = None
+        n_simulations = 0
+        seed = None
+        region_labels = None
+        distances = np.linspace(0, 500, 100).tolist()
 
+        if input.region_check_rl():
+            region_anno = input.region_select_rl()
+            if region_anno in adata.obs.columns:
+                adata.obs[region_anno] = adata.obs[region_anno].astype(str)
+            region_labels = list(map(str, input.rl_region_labels()))
+        if input.sim_check_rl():
+            n_simulations = input.num_sim_rl()
+            seed = input.seed_rl()
 
+        # Calculate Ripley’s L statistic for spatial data in adata
+        spac.spatial_analysis.ripley_l(
+            adata,
+            annotation=annotation,
+            phenotypes=phenotypes,
+            regions=region_anno,
+            distances=distances,
+            n_simulations=n_simulations,
+            seed=seed,
+        )
+
+        # Plot Rupley L Data
+        fig, df = spac.visualization.plot_ripley_l(
+            adata,
+            phenotypes=phenotypes,
+            regions=region_labels,
+            sims=input.sim_check_rl(),
+            return_df=True,
+        )
+        df_ripley.set(df)
+        return fig
+
+    @session.download(filename="ripley_plot_data.csv")
+    def download_df_rl():
+        df = df_ripley.get()
+        if df is not None:
+            csv_string = df.to_csv(index=False)
+            csv_bytes = csv_string.encode("utf-8")
+            return csv_bytes, "text/csv"
+        return None
+
+    @render.ui
+    @reactive.event(input.go_rl, ignore_none=True)
+    def download_button_ui_rl():
+        if df_ripley.get() is not None:
+            return ui.download_button("download_df_rl",
+                                      "Download Data", class_="btn-warning")
+        return None
 
 
 app = App(app_ui, server)
-
-
