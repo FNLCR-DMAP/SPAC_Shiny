@@ -227,8 +227,10 @@ app_ui = ui.page_fluid(
                         ui.input_action_button("go_bp", "Render Plot", class_="btn-success"),
                         ui.div(
                                     {"style": "padding-top: 20px;"},
-                                    ui.output_ui("download_button_ui1")
-                                )
+                                    ui.output_ui("download_button_ui1"),
+                                    {"style": "padding-top: 20px;"},
+                                    ui.output_ui("download_button_ui_boxplot")
+                                ),
                     ),
                     ui.column(9,
                         ui.div(
@@ -290,7 +292,11 @@ app_ui = ui.page_fluid(
                         ui.column(2,
                             ui.input_select("sk1_anno1", "Select Source Annotation", choices=[]),
                             ui.input_select("sk1_anno2", "Select Target Annotation", choices=[]),
-                            ui.input_action_button("go_sk1", "Render Plot", class_="btn-success")
+                            ui.input_action_button("go_sk1", "Render Plot", class_="btn-success"),
+                            ui.div(
+                                {"style": "padding-top: 20px;"},
+                                ui.output_ui("download_button_ui_sankey")
+                            )
                         ),
                         ui.column(10,
                             ui.div(
@@ -489,6 +495,7 @@ def server(input, output, session):
     df_boxplot = reactive.Value(None)
     df_histogram2 = reactive.Value(None)
     df_histogram1 = reactive.Value(None)
+    fig_boxplot = reactive.value(None)
 
     @reactive.Effect
     def update_parts():
@@ -1098,6 +1105,7 @@ def server(input, output, session):
                 # Return the interactive Plotly figure object
                 df_boxplot.set(df)
                 print(type(fig))
+                fig_boxplot.set(fig)
                 return fig
         return None
 
@@ -1118,6 +1126,19 @@ def server(input, output, session):
         if df_boxplot.get() is not None:
             return ui.download_button("download_boxplot", "Download Data", class_="btn-warning")
         return None
+
+    @session.download(filename="boxplot.html")
+    def download_boxplot_html():
+        fig = fig_boxplot.get()
+        if fig is not None:
+            html_string = fig.to_html(include_plotlyjs='cdn')
+            return html_string.encode("utf-8"), "text/html"
+        return None
+
+    @render.ui
+    @reactive.event(input.go_bp, ignore_none=True)
+    def download_button_ui_boxplot():
+        return ui.download_button("download_boxplot_html", "Download Boxplot", class_="btn-warning")
 
 
 
@@ -1436,6 +1457,26 @@ def server(input, output, session):
             fig = spac.visualization.sankey_plot(adata, source_annotation=input.sk1_anno1(), target_annotation=input.sk1_anno2())
             return fig
         return None
+
+    @session.download(filename="sankey_plot.html")
+    def download_sankey_html():
+        adata = ad.AnnData(X=X_data.get(), obs=pd.DataFrame(obs_data.get()), layers=layers_data.get(), dtype=X_data.get().dtype)
+        if adata is not None:
+            fig = spac.visualization.sankey_plot(
+                adata,
+                source_annotation=input.sk1_anno1(),
+                target_annotation=input.sk1_anno2()
+            )
+            html_string = fig.to_html(include_plotlyjs='cdn')
+            return html_string.encode("utf-8"), "text/html"
+        return None
+
+    @render.ui
+    @reactive.event(input.go_sk1, ignore_none=True)
+    def download_button_ui_sankey():
+        # Show the button only if plot has been generated
+        return ui.download_button("download_sankey_html", "Download Sankey Plot", class_="btn-warning")
+
 
     @output
     @render_widget
