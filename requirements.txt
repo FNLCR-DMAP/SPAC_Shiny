@@ -40,7 +40,7 @@ fonttools==4.53.1
 fqdn==1.5.1
 frozenlist==1.4.1
 fsspec==2024.6.1
-h11==0.14.0
+h11==0.16.0
 h5py==3.11.0
 htmltools==0.5.2
 humanize==4.10.0
