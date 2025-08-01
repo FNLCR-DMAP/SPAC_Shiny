@@ -32,6 +32,11 @@ def scatterplot_ui():
                             "Color by Feature",
                             value=False
                         ),
+                        ui.input_checkbox(
+                            "scatter_heatmap_mode",
+                            "Show as Heatmap",
+                            value=False
+                        ),
                         ui.div(id="main-scatter_dropdown"),
                         ui.input_action_button(
                             "go_scatter",
