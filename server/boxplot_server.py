@@ -3,6 +3,8 @@ from shinywidgets import render_widget
 import anndata as ad
 import pandas as pd
 import spac.visualization
+# Added...
+import matplotlib.pyplot as plt
 
 
 def boxplot_server(input, output, session, shared):
@@ -32,34 +34,38 @@ def boxplot_server(input, output, session, shared):
 
         if not input.bp_output_type():
             return None
-        else: 
+        else:
 
             adata = ad.AnnData(
-                X=shared['X_data'].get(), 
-                obs=pd.DataFrame(shared['obs_data'].get()), 
-                var=pd.DataFrame(shared['var_data'].get()), 
-                layers=shared['layers_data'].get(), 
+                X=shared['X_data'].get(),
+                obs=pd.DataFrame(shared['obs_data'].get()),
+                var=pd.DataFrame(shared['var_data'].get()),
+                layers=shared['layers_data'].get(),
                 dtype=shared['X_data'].get().dtype
             )
+            # Added...
+            font_size = input.bp_font_size()
 
             # Proceed only if adata is valid
             if adata is not None and adata.var is not None:
 
                 fig, df = spac.visualization.boxplot_interactive(
-                    adata, 
-                    annotation=on_anno_check(), 
-                    layer=on_layer_check(), 
+                    adata,
+                    annotation=on_anno_check(),
+                    layer=on_layer_check(),
                     features=list(input.bp_features()),
                     showfliers=on_outlier_check(),
                     log_scale=input.bp_log_scale(),
                     orient=on_orient_check(),
-                    figure_height=3, 
-                    figure_width=4.8, 
+                    figure_height=3,
+                    figure_width=4.8,
                     figure_type="interactive"
                 ).values()
 
                 # Return the interactive Plotly figure object
                 shared['df_boxplot'].set(df)
+                # Added...
+                fig.update_layout(font=dict(size=font_size))
                 print(type(fig))
                 return fig
 
@@ -81,8 +87,8 @@ def boxplot_server(input, output, session, shared):
     def download_button_ui1():
         if shared['df_boxplot'].get() is not None:
             return ui.download_button(
-                "download_boxplot", 
-                "Download Data", 
+                "download_boxplot",
+                "Download Data",
                 class_="btn-warning"
             )
         return None
@@ -101,33 +107,35 @@ def boxplot_server(input, output, session, shared):
         if input.bp_output_type():
             return None
 
-        else: 
+        else:
 
             adata = ad.AnnData(
-                X=shared['X_data'].get(), 
-                obs=pd.DataFrame(shared['obs_data'].get()), 
-                var=pd.DataFrame(shared['var_data'].get()), 
-                layers=shared['layers_data'].get(), 
+                X=shared['X_data'].get(),
+                obs=pd.DataFrame(shared['obs_data'].get()),
+                var=pd.DataFrame(shared['var_data'].get()),
+                layers=shared['layers_data'].get(),
                 dtype=shared['X_data'].get().dtype
             )
+            # Added...
+            font_size = input.bp_font_size()
 
             # Proceed only if adata is valid
             if adata is not None and adata.var is not None:
-                
+
                 fig, df = spac.visualization.boxplot_interactive(
-                    adata, 
-                    annotation=on_anno_check(), 
-                    layer=on_layer_check(), 
+                    adata,
+                    annotation=on_anno_check(),
+                    layer=on_layer_check(),
                     features=list(input.bp_features()),
                     showfliers=on_outlier_check(),
                     log_scale=input.bp_log_scale(),
                     orient=on_orient_check(),
-                    figure_height=3, 
-                    figure_width=4.8, 
+                    figure_height=3,
+                    figure_width=4.8,
                     figure_type="static"
                 ).values()
-
+                # Added...
+                fig.update_layout(font=dict(size=font_size))
                 return fig
 
         return None
-

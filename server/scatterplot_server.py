@@ -2,6 +2,8 @@ from shiny import ui, render, reactive
 import anndata as ad
 import pandas as pd
 import spac.visualization
+# Added...
+import matplotlib.pyplot as plt
 
 
 def scatterplot_server(input, output, session, shared):
@@ -83,8 +85,8 @@ def scatterplot_server(input, output, session, shared):
         if btn and not scatter_ui_initialized.get():
             # Insert the color selection dropdown if not already initialized
             dropdown = ui.input_select(
-                "scatter_color", 
-                "Select Feature", 
+                "scatter_color",
+                "Select Feature",
                 choices=shared['var_names'].get()
             )
             ui.insert_ui(
@@ -104,14 +106,14 @@ def scatterplot_server(input, output, session, shared):
         if selected_feature is None:
             return None
         adata = ad.AnnData(
-            X=shared['X_data'].get(), 
+            X=shared['X_data'].get(),
             var=pd.DataFrame(shared['var_data'].get())
         )
         if selected_feature in adata.var_names:
             column_index = adata.var_names.get_loc(selected_feature)
             color_values = adata.X[:, column_index]
             return color_values
-        return None 
+        return None
 
     @output
     @render.plot
@@ -123,6 +125,11 @@ def scatterplot_server(input, output, session, shared):
         x_label = input.scatter_x()
         y_label = input.scatter_y()
         title = f"Scatterplot: {x_label} vs {y_label}"
+        # Added...
+        font_size = input.scatter_font_size()
+
+        # Added...
+        plt.rcParams.update({'font.size': font_size})
 
         if color_enabled:
             fig, ax = spac.visualization.visualize_2D_scatter(
@@ -134,7 +141,8 @@ def scatterplot_server(input, output, session, shared):
         else:
             fig, ax = spac.visualization.visualize_2D_scatter(x, y)
 
-        ax.set_title(title, fontsize=14)
+        # Modified...
+        ax.set_title(title, fontsize=font_size + 2)
         ax.set_xlabel(x_label)
         ax.set_ylabel(y_label)
 

@@ -40,6 +40,14 @@ def annotations_ui():
                             {"style": "padding-top: 20px;"},
                             ui.output_ui("download_histogram_button_ui")
                         ),
+                        # ADDED: Font size slider for the plot
+                        ui.input_slider(
+                            "annotations_font_size",
+                            "Axis Label Font Size",
+                            min=3,
+                            max=24,
+                            value=10
+                        )
                     ),
                     ui.column(
                         10,

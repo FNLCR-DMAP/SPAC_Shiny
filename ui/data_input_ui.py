@@ -41,6 +41,11 @@ def data_input_ui():
                                     "input_file", "Choose a file to upload:", 
                                     multiple=False, 
                                     width="100%"
+                                ),
+                                # ADDED: Helper text to show supported file types
+                                ui.p(
+                                    "Supported types: .pickle, .h5ad",
+                                    style="font-size: 0.9em; font-style: italic; color: #6c757d;"
                                 )
                             ),
                             ui.row(

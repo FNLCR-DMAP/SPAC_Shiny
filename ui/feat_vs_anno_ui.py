@@ -36,20 +36,50 @@ def feat_vs_anno_ui():
                             max=90, 
                             value=25
                         ),
+                        ui.input_slider(
+                            "hm_y_label_rotation", 
+                            "Rotate Y Axis Labels", 
+                            min=0, 
+                            max=90, 
+                            value=25
+                        ),
+
+                        ui.input_slider(
+                            "axis_label_fontsize",
+                            "Axis Label Font Size",
+                            min=3,
+                            max=24,
+                            value=10
+                        ),
+                        
+                        
+                        ui.input_checkbox(
+                            "enable_abbreviation",
+                            "Abbreviate Axis Labels",
+                            value=False
+                        ),
+                        
+                        ui.div(id="main-hm1_check"), 
+
                         ui.input_checkbox(
                             "dendogram", 
                             "Include Dendrogram", 
                             False
                         ),
-                        ui.div(id="main-hm1_check"),
+                         
                         ui.div(id="main-hm2_check"),
                         ui.div(id="main-min_num"),
                         ui.div(id="main-max_num"),
+                        # Grouped buttons with spacing
+                        
                         ui.input_action_button(
-                            "go_hm1", 
-                            "Render Plot", 
+                            "go_hm1",
+                            "Render Plot",
                             class_="btn-success"
                         ),
+                            
+
+                        
                         ui.div(
                             {"style": "padding-top: 20px;"},
                             ui.output_ui("download_button_ui")

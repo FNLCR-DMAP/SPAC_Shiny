@@ -71,10 +71,18 @@ def nearest_neighbor_ui():
                         #     "Apply Facet Plots",
                         #     value=False
                         # ),
+                        # Added...
+                        ui.input_slider(
+                            "nn_font_size",
+                            "Font Size",
+                            min=5,
+                            max=30,
+                            value=12
+                        ),
                         ui.input_action_button(
                             "go_nn",
                             "Render Plot",
-                            class_="btn-success"
+                            class_="btn_success"
                         ),
                         ui.div(
                             {"style": "padding-top: 20px;"},

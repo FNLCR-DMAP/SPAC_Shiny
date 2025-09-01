@@ -54,6 +54,14 @@ def boxplot_ui():
                         "Enable Interactive Plot",
                         True
                     ),
+                    # Added...
+                    ui.input_slider(
+                        "bp_font_size",
+                        "Font Size",
+                        min=5,
+                        max=30,
+                        value=12
+                    ),
                     ui.input_action_button(
                         "go_bp",
                         "Render Plot",

@@ -11,18 +11,26 @@ def anno_vs_anno_ui():
                     ui.column(
                         2,
                         ui.input_select(
-                           "sk1_anno1", 
-                           "Select Source Annotation", 
+                           "sk1_anno1",
+                           "Select Source Annotation",
                            choices=[]
                         ),
                         ui.input_select(
-                           "sk1_anno2", 
-                           "Select Target Annotation", 
+                           "sk1_anno2",
+                           "Select Target Annotation",
                            choices=[]
                         ),
+                        # Added...
+                        ui.input_slider(
+                            "sankey_font_size",
+                            "Font Size",
+                            min=5,
+                            max=30,
+                            value=12
+                        ),
                         ui.input_action_button(
-                           "go_sk1", 
-                           "Render Plot", 
+                           "go_sk1",
+                           "Render Plot",
                            class_="btn-success"
                         )
                     ),
@@ -43,20 +51,28 @@ def anno_vs_anno_ui():
                     ui.column(
                         2,
                         ui.input_select(
-                           "rhm_anno1", 
-                           "Select Source Annotation", 
-                           choices=[], 
+                           "rhm_anno1",
+                           "Select Source Annotation",
+                           choices=[],
                            selected=[]
                         ),
                         ui.input_select(
-                           "rhm_anno2", 
-                           "Select Target Annotation", 
-                           choices=[], 
+                           "rhm_anno2",
+                           "Select Target Annotation",
+                           choices=[],
                            selected=[]
                         ),
+                        # Added...
+                        ui.input_slider(
+                            "heatmap_font_size",
+                            "Font Size",
+                            min=5,
+                            max=30,
+                            value=12
+                        ),
                         ui.input_action_button(
-                           "go_rhm1", 
-                           "Render Plot", 
+                           "go_rhm1",
+                           "Render Plot",
                            class_="btn-success"
                         ),
                         ui.div(
