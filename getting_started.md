@@ -48,7 +48,7 @@ SPAC_Shiny is an interactive dashboard designed to empower researchers with intu
 - Spatial coordinates in `obsm['spatial']`
 - Cell type annotations in `obs`
 
-### Recommended Structure
+### Anndata Structure
 ```
 adata.obs: Cell metadata and annotations
 adata.obsm['spatial']: X,Y coordinates
@@ -63,7 +63,7 @@ adata.X: Expression matrix
 2. Explore **Annotations** to understand your cell types
 3. Check **Features** for gene expression overview
 4. Use **Spatial** tab for spatial analysis
-5. Create publication-ready plots in visualization tabs
+5. Create and download plots in visualization tabs
 
 ### Performance Notes
 - Large datasets (>1M cells) are optimized for speed
@@ -74,6 +74,3 @@ adata.X: Expression matrix
 - Each tab contains specific instructions
 - Hover over input elements for tooltips
 - Sample data is provided for testing features
-
----
-*Built with ❤️ by the Frederick National Laboratory for Cancer Research and Purdue University*
