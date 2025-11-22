@@ -1,0 +1,282 @@
+%% Data Flow Sequence Diagrams for SPAC Shiny App
+%% These Mermaid sequence diagrams show the reactive flow for key operations
+
+---
+%% DIAGRAM 1: Data Loading Flow
+---
+
+sequenceDiagram
+    actor User
+    participant UI as Data Input UI
+    participant DIS as data_input_server
+    participant Shared as Shared State
+    participant EUS as effect_update_server
+    participant UI_All as All UI Modules
+    participant FS as Feature Servers
+
+    User->>UI: Upload .h5ad/.pickle file
+    UI->>DIS: input.input_file() changes
+    
+    Note over DIS: @reactive.Effect<br/>adata_filter()
+    DIS->>DIS: Load file
+    DIS->>Shared: adata_main.set(adata)
+    DIS->>Shared: data_loaded.set(True)
+    
+    Note over DIS: @reactive.Effect<br/>update_parts()
+    DIS->>Shared: X_data.set(adata.X)
+    DIS->>Shared: obs_data.set(adata.obs)
+    DIS->>Shared: var_data.set(adata.var)
+    DIS->>Shared: layers_data.set(adata.layers)
+    DIS->>Shared: obs_names.set(list(adata.obs.keys()))
+    DIS->>Shared: var_names.set(list(adata.var.index))
+    DIS->>Shared: layers_names.set(list(adata.layers.keys()))
+    DIS->>Shared: spatial_distance_columns.set(cols)
+    
+    Note over EUS: Multiple @reactive.Effect<br/>functions trigger automatically
+    
+    Shared-->>EUS: obs_names changed
+    EUS->>UI_All: ui.update_select("bp_anno", choices)
+    EUS->>UI_All: ui.update_select("spatial_anno", choices)
+    EUS->>UI_All: ui.update_select("sk1_anno1", choices)
+    
+    Shared-->>EUS: var_names changed
+    EUS->>UI_All: ui.update_select("h1_feat", choices)
+    EUS->>UI_All: ui.update_select("umap_feat", choices)
+    EUS->>UI_All: ui.update_selectize("bp_features", choices)
+    
+    Shared-->>EUS: layers_names changed
+    EUS->>UI_All: ui.update_select("h1_layer", choices)
+    EUS->>UI_All: ui.update_select("bp_layer", choices)
+    
+    Shared-->>EUS: spatial_distance_columns changed
+    EUS->>UI_All: ui.update_select("nn_source_label", choices)
+    EUS->>UI_All: ui.update_selectize("nn_target_label", choices)
+    
+    Note over FS: Feature servers now have<br/>access to data via shared state
+    
+    UI_All-->>User: Dropdowns populated with choices
+    User->>User: Ready to perform analysis
+
+---
+%% DIAGRAM 2: Boxplot Generation Flow
+---
+
+sequenceDiagram
+    actor User
+    participant UI as Boxplot UI
+    participant BS as boxplot_server
+    participant Shared as Shared State
+    participant SPAC as spac.visualization
+    participant Output as Plotly Widget
+
+    User->>UI: Select features
+    User->>UI: Select annotation
+    User->>UI: Configure options
+    User->>UI: Click "Generate" button
+    
+    UI->>BS: input.go_bp() event
+    
+    Note over BS: @reactive.event(input.go_bp)<br/>@render_widget<br/>spac_Boxplot()
+    
+    BS->>Shared: X_data.get()
+    Shared-->>BS: X matrix
+    BS->>Shared: obs_data.get()
+    Shared-->>BS: obs DataFrame
+    BS->>Shared: var_data.get()
+    Shared-->>BS: var DataFrame
+    BS->>Shared: layers_data.get()
+    Shared-->>BS: layers dict
+    
+    BS->>BS: Reconstruct AnnData object
+    BS->>BS: Get input parameters
+    
+    BS->>SPAC: boxplot_interactive(adata, params)
+    SPAC-->>BS: fig, df
+    
+    BS->>Shared: df_boxplot.set(df)
+    
+    BS->>Output: Return fig
+    Output-->>User: Display interactive boxplot
+    
+    Note over User: User can now download data
+
+---
+%% DIAGRAM 3: Download Flow
+---
+
+sequenceDiagram
+    actor User
+    participant UI as Download Button
+    participant BS as boxplot_server
+    participant Shared as Shared State
+    participant Browser as Browser Download
+
+    User->>UI: Click "Download Data" button
+    
+    Note over BS: @render.download<br/>download_boxplot()
+    
+    UI->>BS: Download requested
+    BS->>Shared: df_boxplot.get()
+    Shared-->>BS: DataFrame
+    
+    BS->>BS: df.to_csv(index=False)
+    BS->>BS: Encode to UTF-8
+    BS->>Browser: Return CSV bytes + MIME type
+    Browser-->>User: Download boxplot_data.csv
+
+---
+%% DIAGRAM 4: Dynamic UI Insertion Flow (Spatial Module)
+---
+
+sequenceDiagram
+    actor User
+    participant UI as Spatial UI
+    participant SS as spatial_server
+    participant Shared as Shared State
+    participant DOM as Browser DOM
+
+    Note over SS: slide_ui_initialized = reactive.Value(False)
+    
+    User->>UI: Check "Filter by Slide" checkbox
+    UI->>SS: input.slide_select_check() = True
+    
+    Note over SS: @reactive.effect<br/>slide_reactivity()
+    
+    SS->>SS: Check slide_ui_initialized.get() = False
+    SS->>Shared: obs_names.get()
+    Shared-->>SS: List of annotations
+    
+    SS->>SS: Create dropdown UI element
+    SS->>DOM: ui.insert_ui(..., selector="#main-slide_dropdown")
+    DOM-->>UI: New dropdown appears
+    
+    SS->>SS: slide_ui_initialized.set(True)
+    
+    User->>UI: Select annotation from dropdown
+    UI->>SS: input.slide_select_drop() changed
+    
+    Note over SS: @reactive.effect<br/>update_slide_select_drop()
+    
+    SS->>Shared: obs_data.get()
+    Shared-->>SS: obs DataFrame
+    SS->>SS: Get unique labels from selected annotation
+    SS->>DOM: ui.update_select("slide_select_label", choices)
+    DOM-->>UI: Second dropdown populated
+    
+    User->>UI: Uncheck "Filter by Slide" checkbox
+    UI->>SS: input.slide_select_check() = False
+    
+    SS->>SS: Check slide_ui_initialized.get() = True
+    SS->>DOM: ui.remove_ui("#inserted-slide_dropdown")
+    DOM-->>UI: Dropdown removed
+    SS->>SS: slide_ui_initialized.set(False)
+
+---
+%% DIAGRAM 5: Cached Computation Flow
+---
+
+sequenceDiagram
+    actor User
+    participant UI as UI Inputs
+    participant Server as Feature Server
+    participant Cache as @reactive.calc Cache
+    participant Shared as Shared State
+    participant Plot1 as Plot Output 1
+    participant Plot2 as Plot Output 2
+
+    User->>UI: Change parameter
+    UI->>Server: Input changed
+    
+    Note over Server: @reactive.calc<br/>expensive_computation()
+    
+    Server->>Shared: X_data.get()
+    Shared-->>Server: Raw data
+    
+    Server->>Server: Perform expensive transform
+    Server->>Cache: Store result
+    
+    Note over Plot1: @render.plot<br/>plot1()
+    Plot1->>Server: Call expensive_computation()
+    Server->>Cache: Check cache
+    Cache-->>Plot1: Return cached result (no recompute!)
+    Plot1-->>User: Display plot 1
+    
+    Note over Plot2: @render.plot<br/>plot2()
+    Plot2->>Server: Call expensive_computation()
+    Server->>Cache: Check cache
+    Cache-->>Plot2: Return cached result (no recompute!)
+    Plot2-->>User: Display plot 2
+    
+    Note over Server: Result computed once,<br/>used by multiple outputs
+
+---
+%% DIAGRAM 6: Effect Chain Flow
+---
+
+sequenceDiagram
+    participant User
+    participant DIS as data_input_server
+    participant Shared as Shared State
+    participant EUS1 as Effect 1:<br/>update_select_input_feat
+    participant EUS2 as Effect 2:<br/>update_select_input_anno
+    participant EUS3 as Effect 3:<br/>update_select_input_layer
+    participant EUS4 as Effect 4:<br/>update_nearest_neighbor_choices
+    participant UI as All UI Elements
+
+    User->>DIS: Upload file
+    DIS->>Shared: Multiple .set() calls
+    
+    par Parallel Effect Execution
+        Shared-->>EUS1: var_names changed
+        EUS1->>UI: Update feature dropdowns
+    and
+        Shared-->>EUS2: obs_names changed
+        EUS2->>UI: Update annotation dropdowns
+    and
+        Shared-->>EUS3: layers_names changed
+        EUS3->>UI: Update layer dropdowns
+    and
+        Shared-->>EUS4: spatial_distance_columns changed
+        EUS4->>UI: Update NN phenotype dropdowns
+    end
+    
+    UI-->>User: All dropdowns synchronized
+
+---
+%% DIAGRAM 7: Error Prevention with req()
+---
+
+sequenceDiagram
+    actor User
+    participant UI as UI Input
+    participant Server as Feature Server
+    participant Shared as Shared State
+    participant Output as Plot Output
+
+    Note over Server: User hasn't loaded data yet
+    
+    User->>UI: Click "Generate" button<br/>(without loading data)
+    UI->>Server: input.go_btn() event
+    
+    Note over Server: @render.plot<br/>my_plot()
+    
+    Server->>Shared: adata_main.get()
+    Shared-->>Server: None (no data loaded)
+    
+    Server->>Server: req(adata)
+    
+    Note over Server: req() silently stops execution<br/>when value is None/False/empty
+    
+    Server--XOutput: Execution stopped, no error
+    Output-->>User: No plot displayed (no error shown)
+    
+    Note over User: Later, after loading data
+    
+    User->>UI: Click "Generate" button<br/>(after loading data)
+    UI->>Server: input.go_btn() event
+    Server->>Shared: adata_main.get()
+    Shared-->>Server: Valid AnnData object
+    Server->>Server: req(adata) - passes!
+    Server->>Server: Generate plot
+    Server->>Output: Return figure
+    Output-->>User: Display plot successfully

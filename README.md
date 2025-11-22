@@ -67,8 +67,18 @@ Perfect for analyzing:
 
 ## Documentation & Support
 
+### 📖 For Users
 - **[Getting Started Guide](getting_started.md)** - Step-by-step usage instructions
 - **[Technical Details](TECHNICAL_DETAILS.md)** - Full project documentation and benchmarks
+
+### 👨‍💻 For Developers
+- **[Reactive Architecture Guide](docs/REACTIVE_ARCHITECTURE.md)** - Complete guide to the app's reactive framework
+- **[Quick Reference](docs/REACTIVE_PATTERNS_QUICK_REF.md)** - Condensed reactive patterns reference
+- **[Demo Presentation](docs/DEMO_PRESENTATION.md)** - Overview for demos and new contributors
+- **[Quick Start Guide](docs/QUICK_START_DOCS.md)** - How to use the documentation
+- **[Architecture Diagrams](docs/)** - Visual diagrams (Mermaid format)
+
+### 🤝 Community
 - **Issues**: [GitHub Issues](https://github.com/FNLCR-DMAP/SPAC_Shiny/issues)
 - **Contact**: george.zaki@nih.gov
 

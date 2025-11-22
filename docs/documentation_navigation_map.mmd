@@ -1,0 +1,177 @@
+%% Documentation Navigation Map
+%% This diagram shows how different documentation files relate to each other
+
+graph TB
+    Start["👋 START HERE<br/>Choose Your Path"]
+    
+    %% User Paths
+    Demo["🎤 Preparing Demo/<br/>Presentation"]
+    NewDev["👨‍💻 New Contributor/<br/>Developer"]
+    ExpDev["⚡ Experienced<br/>Developer"]
+    Review["🔍 Architecture<br/>Review"]
+    
+    %% Main Documents
+    MainGuide["📘 REACTIVE_ARCHITECTURE.md<br/>(Comprehensive Guide)<br/>~50 pages"]
+    QuickRef["⚡ REACTIVE_PATTERNS_QUICK_REF.md<br/>(Quick Reference)<br/>~10 pages"]
+    DemoDoc["🎤 DEMO_PRESENTATION.md<br/>(Presentation Format)<br/>~15 pages"]
+    CheatSheet["🖨️ VISUAL_CHEAT_SHEET.md<br/>(Printable Reference)<br/>~5 pages"]
+    
+    %% Diagrams
+    ArchDiagram["🗺️ architecture_diagram.mmd<br/>(System Architecture)<br/>Mermaid diagram"]
+    FlowDiagrams["📊 data_flow_diagrams.mmd<br/>(7 Sequence Diagrams)<br/>Mermaid diagrams"]
+    
+    %% Supporting Docs
+    DocsIndex["📖 docs/README.md<br/>(Documentation Index)<br/>Navigation guide"]
+    ProjectREADME["📄 README.md<br/>(Project Overview)<br/>Getting started"]
+    
+    %% Connections
+    Start --> Demo
+    Start --> NewDev
+    Start --> ExpDev
+    Start --> Review
+    
+    %% Demo Path
+    Demo --> DemoDoc
+    DemoDoc --> ArchDiagram
+    DemoDoc --> FlowDiagrams
+    DemoDoc -.->|"For details"| MainGuide
+    
+    %% New Developer Path
+    NewDev --> DocsIndex
+    DocsIndex --> MainGuide
+    MainGuide --> QuickRef
+    MainGuide --> FlowDiagrams
+    QuickRef --> CheatSheet
+    
+    %% Experienced Developer Path
+    ExpDev --> QuickRef
+    QuickRef --> CheatSheet
+    QuickRef -.->|"Deep dive"| MainGuide
+    
+    %% Review Path
+    Review --> MainGuide
+    MainGuide --> ArchDiagram
+    MainGuide --> FlowDiagrams
+    
+    %% Cross-references
+    DocsIndex -.->|"Links to all"| MainGuide
+    DocsIndex -.->|"Links to all"| QuickRef
+    DocsIndex -.->|"Links to all"| DemoDoc
+    DocsIndex -.->|"Links to all"| CheatSheet
+    DocsIndex -.->|"Links to all"| ArchDiagram
+    DocsIndex -.->|"Links to all"| FlowDiagrams
+    
+    ProjectREADME -.->|"Links to"| DocsIndex
+    ProjectREADME -.->|"Links to"| MainGuide
+    
+    %% All docs reference main guide
+    QuickRef -.->|"See also"| MainGuide
+    DemoDoc -.->|"Full details"| MainGuide
+    CheatSheet -.->|"Full guide"| MainGuide
+    
+    %% Styling
+    classDef startClass fill:#e1f5ff,stroke:#01579b,stroke-width:3px
+    classDef pathClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef mainDocClass fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
+    classDef quickDocClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef diagramClass fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    classDef supportClass fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    
+    class Start startClass
+    class Demo,NewDev,ExpDev,Review pathClass
+    class MainGuide mainDocClass
+    class QuickRef,DemoDoc,CheatSheet quickDocClass
+    class ArchDiagram,FlowDiagrams diagramClass
+    class DocsIndex,ProjectREADME supportClass
+
+---
+
+%% Documentation Depth Hierarchy
+
+graph LR
+    subgraph "📊 Document Complexity Levels"
+        Level1["Level 1: Quick Start<br/>⏱️ 10-30 minutes<br/>• DEMO_PRESENTATION.md<br/>• VISUAL_CHEAT_SHEET.md<br/>• architecture_diagram.mmd"]
+        Level2["Level 2: Working Knowledge<br/>⏱️ 1-2 hours<br/>• REACTIVE_PATTERNS_QUICK_REF.md<br/>• Selected sections of main guide<br/>• Key sequence diagrams"]
+        Level3["Level 3: Deep Understanding<br/>⏱️ 4-8 hours<br/>• REACTIVE_ARCHITECTURE.md (full)<br/>• All data_flow_diagrams.mmd<br/>• Hands-on practice"]
+        Level4["Level 4: Mastery<br/>⏱️ 1-2 weeks<br/>• All documentation<br/>• Implement features<br/>• Code review & optimization"]
+    end
+    
+    Level1 --> Level2
+    Level2 --> Level3
+    Level3 --> Level4
+    
+    classDef level1Class fill:#c8e6c9,stroke:#2e7d32
+    classDef level2Class fill:#fff9c4,stroke:#f57f17
+    classDef level3Class fill:#ffccbc,stroke:#d84315
+    classDef level4Class fill:#f3e5f5,stroke:#6a1b9a
+    
+    class Level1 level1Class
+    class Level2 level2Class
+    class Level3 level3Class
+    class Level4 level4Class
+
+---
+
+%% Content Type Breakdown
+
+graph TB
+    subgraph "📚 Documentation Types"
+        Comprehensive["📘 Comprehensive Guides<br/>────────────────<br/>REACTIVE_ARCHITECTURE.md<br/>• Full explanations<br/>• All patterns<br/>• Best practices<br/>• Developer guide"]
+        
+        Reference["⚡ Quick References<br/>────────────────<br/>REACTIVE_PATTERNS_QUICK_REF.md<br/>VISUAL_CHEAT_SHEET.md<br/>• Lookup tables<br/>• Code templates<br/>• Troubleshooting"]
+        
+        Visual["🗺️ Visual Diagrams<br/>────────────────<br/>architecture_diagram.mmd<br/>data_flow_diagrams.mmd<br/>• System design<br/>• Data flows<br/>• Sequences"]
+        
+        Presentation["🎤 Presentations<br/>────────────────<br/>DEMO_PRESENTATION.md<br/>• Simplified concepts<br/>• Examples<br/>• Q&A format"]
+        
+        Navigation["📖 Navigation<br/>────────────────<br/>docs/README.md<br/>DOCUMENTATION_SUMMARY.md<br/>• Document index<br/>• Learning paths<br/>• Use cases"]
+    end
+    
+    Comprehensive -.->|"Summarized in"| Reference
+    Comprehensive -.->|"Visualized in"| Visual
+    Comprehensive -.->|"Presented in"| Presentation
+    Navigation -.->|"Indexes all"| Comprehensive
+    Navigation -.->|"Indexes all"| Reference
+    Navigation -.->|"Indexes all"| Visual
+    Navigation -.->|"Indexes all"| Presentation
+    
+    classDef compClass fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    classDef refClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef visClass fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px
+    classDef presClass fill:#ffccbc,stroke:#d84315,stroke-width:2px
+    classDef navClass fill:#e0f2f1,stroke:#00695c,stroke-width:2px
+    
+    class Comprehensive compClass
+    class Reference refClass
+    class Visual visClass
+    class Presentation presClass
+    class Navigation navClass
+
+---
+
+%% Usage Scenarios
+
+graph TB
+    subgraph "🎯 Common Use Cases"
+        UC1["Use Case 1:<br/>Onboarding New Developer"]
+        UC2["Use Case 2:<br/>Adding New Feature"]
+        UC3["Use Case 3:<br/>Debugging Issue"]
+        UC4["Use Case 4:<br/>Demo to Stakeholders"]
+        UC5["Use Case 5:<br/>Architecture Review"]
+    end
+    
+    UC1 --> UC1_Docs["1. docs/README.md (learning path)<br/>2. REACTIVE_ARCHITECTURE.md (overview)<br/>3. Developer Guide section<br/>4. REACTIVE_PATTERNS_QUICK_REF.md"]
+    
+    UC2 --> UC2_Docs["1. REACTIVE_PATTERNS_QUICK_REF.md (module template)<br/>2. VISUAL_CHEAT_SHEET.md (checklist)<br/>3. data_flow_diagrams.mmd (reference flow)<br/>4. REACTIVE_ARCHITECTURE.md (pattern details)"]
+    
+    UC3 --> UC3_Docs["1. REACTIVE_PATTERNS_QUICK_REF.md (troubleshooting)<br/>2. VISUAL_CHEAT_SHEET.md (common errors)<br/>3. REACTIVE_ARCHITECTURE.md (debugging section)<br/>4. data_flow_diagrams.mmd (understand flow)"]
+    
+    UC4 --> UC4_Docs["1. DEMO_PRESENTATION.md (present)<br/>2. architecture_diagram.mmd (show system)<br/>3. data_flow_diagrams.mmd (show flows)<br/>4. VISUAL_CHEAT_SHEET.md (handout)"]
+    
+    UC5 --> UC5_Docs["1. REACTIVE_ARCHITECTURE.md (complete architecture)<br/>2. architecture_diagram.mmd (system design)<br/>3. data_flow_diagrams.mmd (interaction patterns)<br/>4. Best Practices section"]
+    
+    classDef ucClass fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef docClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    
+    class UC1,UC2,UC3,UC4,UC5 ucClass
+    class UC1_Docs,UC2_Docs,UC3_Docs,UC4_Docs,UC5_Docs docClass

@@ -1,0 +1,132 @@
+%% SPAC Shiny App - Reactive Architecture Diagram
+%% This is a Mermaid diagram that can be rendered in GitHub, VS Code, or online tools
+
+graph TB
+    subgraph User["👤 User Interactions"]
+        UI_Input["File Upload<br/>Button Clicks<br/>Input Changes<br/>Parameter Selection"]
+    end
+
+    subgraph AppMain["📱 app.py - Main Application"]
+        AppInit["Application Initialization"]
+        SharedState["🗄️ Shared State Dictionary<br/>(Reactive Values)"]
+        UIRegistry["UI Module Registry"]
+        ServerRegistry["Server Module Registry"]
+    end
+
+    subgraph UILayer["🎨 UI Layer (ui/*.py)"]
+        UI_GettingStarted["getting_started_ui"]
+        UI_DataInput["data_input_ui"]
+        UI_Spatial["spatial_ui"]
+        UI_Boxplot["boxplot_ui"]
+        UI_Scatter["scatterplot_ui"]
+        UI_UMAP["umap_ui"]
+        UI_NN["nearest_neighbor_ui"]
+        UI_Ripley["ripleyL_ui"]
+        UI_Other["... other UI modules"]
+    end
+
+    subgraph DataState["💾 Shared Reactive State"]
+        State_Main["adata_main<br/>(Main AnnData Object)"]
+        State_Components["Data Components:<br/>X_data, obs_data, var_data<br/>layers_data, uns_data, obsm_data"]
+        State_Metadata["Metadata:<br/>obs_names, var_names<br/>layers_names, uns_names<br/>spatial_distance_columns"]
+        State_Output["Output DataFrames:<br/>df_boxplot, df_histogram<br/>df_nn, df_ripley<br/>df_heatmap, df_relational"]
+        State_Flags["State Flags:<br/>data_loaded<br/>preloaded_data"]
+    end
+
+    subgraph ServerLayer["⚙️ Server Layer (server/*.py)"]
+        Server_DataInput["data_input_server<br/>📥 Load & Decompose Data"]
+        Server_Effects["effect_update_server<br/>🔄 UI Synchronization"]
+        Server_Spatial["spatial_server"]
+        Server_Boxplot["boxplot_server"]
+        Server_Scatter["scatterplot_server"]
+        Server_NN["nearest_neighbor_server"]
+        Server_Ripley["ripleyL_server"]
+        Server_Other["... other server modules"]
+    end
+
+    subgraph Outputs["📊 Outputs & Renders"]
+        Output_Plots["Interactive Plots<br/>(Plotly/Matplotlib)"]
+        Output_Tables["Data Tables"]
+        Output_Downloads["CSV Downloads"]
+        Output_DynamicUI["Dynamic UI Elements"]
+    end
+
+    %% User to UI Layer
+    UI_Input --> UIRegistry
+    UIRegistry --> UI_DataInput
+    UIRegistry --> UI_Spatial
+    UIRegistry --> UI_Boxplot
+    UIRegistry --> UI_Other
+
+    %% App initialization
+    AppInit --> SharedState
+    AppInit --> UIRegistry
+    AppInit --> ServerRegistry
+
+    %% Shared State connections
+    SharedState --> State_Main
+    SharedState --> State_Components
+    SharedState --> State_Metadata
+    SharedState --> State_Output
+    SharedState --> State_Flags
+
+    %% Server registry to servers
+    ServerRegistry --> Server_DataInput
+    ServerRegistry --> Server_Effects
+    ServerRegistry --> Server_Spatial
+    ServerRegistry --> Server_Boxplot
+    ServerRegistry --> Server_Other
+
+    %% Primary data flow: User input -> Data Input Server -> State
+    UI_Input -.->|"1. File Upload"| Server_DataInput
+    Server_DataInput -->|"2. adata_main.set()"| State_Main
+    Server_DataInput -->|"3. Decompose"| State_Components
+    Server_DataInput -->|"4. Extract metadata"| State_Metadata
+    Server_DataInput -->|"5. Set flag"| State_Flags
+
+    %% State changes trigger effects
+    State_Components -.->|"6. @reactive.Effect"| Server_Effects
+    State_Metadata -.->|"7. @reactive.Effect"| Server_Effects
+
+    %% Effects update UI
+    Server_Effects -.->|"8. ui.update_select()"| UI_Spatial
+    Server_Effects -.->|"9. ui.update_select()"| UI_Boxplot
+    Server_Effects -.->|"10. ui.update_select()"| UI_Other
+
+    %% Feature servers read state
+    State_Components -.->|"Read .get()"| Server_Spatial
+    State_Components -.->|"Read .get()"| Server_Boxplot
+    State_Components -.->|"Read .get()"| Server_Other
+
+    %% User triggers analysis
+    UI_Input -.->|"11. Click 'Generate'"| Server_Boxplot
+    UI_Input -.->|"11. Click 'Generate'"| Server_Spatial
+
+    %% Servers write output data
+    Server_Boxplot -->|"12. Store df"| State_Output
+    Server_Spatial -->|"12. Store df"| State_Output
+    Server_Other -->|"12. Store df"| State_Output
+
+    %% Servers generate outputs
+    Server_Boxplot --> Output_Plots
+    Server_Spatial --> Output_Plots
+    Server_Other --> Output_Plots
+    Server_Spatial --> Output_DynamicUI
+    
+    %% Downloads use stored data
+    State_Output -.->|"13. Retrieve df"| Output_Downloads
+
+    %% Styling
+    classDef userClass fill:#e1f5ff,stroke:#01579b,stroke-width:2px
+    classDef appClass fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef stateClass fill:#f3e5f5,stroke:#4a148c,stroke-width:3px
+    classDef serverClass fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+    classDef uiClass fill:#fff9c4,stroke:#f57f17,stroke-width:2px
+    classDef outputClass fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+    class UI_Input userClass
+    class AppInit,SharedState,UIRegistry,ServerRegistry appClass
+    class State_Main,State_Components,State_Metadata,State_Output,State_Flags stateClass
+    class Server_DataInput,Server_Effects,Server_Spatial,Server_Boxplot,Server_Scatter,Server_NN,Server_Ripley,Server_Other serverClass
+    class UI_GettingStarted,UI_DataInput,UI_Spatial,UI_Boxplot,UI_Scatter,UI_UMAP,UI_NN,UI_Ripley,UI_Other uiClass
+    class Output_Plots,Output_Tables,Output_Downloads,Output_DynamicUI outputClass
