@@ -69,6 +69,7 @@ Perfect for analyzing:
 
 - **[Getting Started Guide](getting_started.md)** - Step-by-step usage instructions
 - **[Technical Details](TECHNICAL_DETAILS.md)** - Full project documentation and benchmarks
+- **[Contributing Guide](CONTRIBUTING.md)** - Information on contributing
 - **Issues**: [GitHub Issues](https://github.com/FNLCR-DMAP/SPAC_Shiny/issues)
 - **Contact**: george.zaki@nih.gov
 
