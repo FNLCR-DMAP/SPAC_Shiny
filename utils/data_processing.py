@@ -3,11 +3,12 @@ SPAC Shiny App - Data Processing Module
 This module contains functions for loading and processing data for the SPAC Shiny app.
 """
 
-import anndata as ad
-import pandas as pd
-
 from pathlib import Path
 import logging
+import pickle
+
+import anndata as ad
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 

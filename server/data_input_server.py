@@ -5,10 +5,11 @@ This module handles file uploads and data loading with caching support
 for improved performance across all analysis modules.
 """
 
-from shiny import render, reactive
-from utils.data_processing import cached_load_data
 import os
 import re
+
+from shiny import render, reactive
+from utils.data_processing import cached_load_data
 
 
 def sanitize_filename(filename):

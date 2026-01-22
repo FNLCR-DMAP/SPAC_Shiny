@@ -59,8 +59,17 @@ def features_server(input, output, session, shared):
 
     @render.download(filename="features_histogram_data.csv")
     def download_histogram1_df():
+        """
+        Download the histogram data as a CSV file.
+
+        Returns
+        -------
+        tuple or None
+            A tuple containing the CSV bytes and the MIME type if data is available,
+            otherwise None.
+        """
         df = shared['df_histogram1'].get()
-        if df:
+        if df is not None and not df.empty:
             csv_string = df.to_csv(index=False)
             csv_bytes = csv_string.encode("utf-8")
             return csv_bytes, "text/csv"
@@ -70,7 +79,16 @@ def features_server(input, output, session, shared):
     @render.ui
     @reactive.event(input.go_h1, ignore_none=True)
     def download_histogram1_button_ui():
-        if shared['df_histogram1'].get():
+        """
+        Render the download button for the histogram data.
+
+        Returns
+        -------
+        shiny.ui.Tag or None
+            The download button UI element if data is available, otherwise None.
+        """
+        df = shared['df_histogram1'].get()
+        if df is not None and not df.empty:
             return ui.download_button(
                 "download_histogram1_df",
                 "Download Data",
