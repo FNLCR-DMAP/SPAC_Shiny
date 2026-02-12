@@ -1,5 +1,6 @@
-from shiny import App, ui, reactive
+from shiny import App, ui, reactive, render
 import os
+import requests
 
 
 # Screen imports
@@ -45,24 +46,16 @@ from utils.security import apply_security_enhancements
 header_html = read_html_file("header.html")
 footer_html = read_html_file("footer.html")
 
-file_path = "dev_example.pickle"  # Path to your preloaded .pickle file
-preloaded_data = load_data(file_path)  # Initialize as None
+file_path = "dev_example.pickle"
+preloaded_data = load_data(file_path)
 
 
 app_ui = ui.page_fluid(
-    # Apply security enhancements
     apply_security_enhancements(),
-
-    # Include header HTML
     ui.HTML(header_html),
-
-    # Add navigation accessibility fixes
     accessible_navigation(),
-
-    # Add global slider accessibility fixes
     apply_slider_accessibility_global(),
 
-    # Main application content
     ui.navset_card_tab(
         getting_started_ui(),
         data_input_ui(),
@@ -77,14 +70,14 @@ app_ui = ui.page_fluid(
         nearest_neighbor_ui(),
         ripleyL_ui(),
     ),
-    # Fixed chat button
+
     ui.input_action_button(
         "my_fixed_btn",
         "💬",
         class_="fixed-button btn btn-primary",
-        onclick="toggleChatPanel()"  # Direct JavaScript call
+        onclick="toggleChatPanel()"
     ),
-    # Floating chat panel
+
     ui.div(
         ui.div(
             ui.h3("Chat with SPAC!", style="margin-top: 0;"),
@@ -96,19 +89,24 @@ app_ui = ui.page_fluid(
             ),
             style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;"
         ),
+        ui.div(
+            ui.output_ui("chat_display"),
+            id="chat_messages",
+            style="max-height: 300px; overflow-y: auto; margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px;"
+        ),
         ui.input_text_area(
             "user_input",
             "Type your message here:",
             placeholder="Enter text...",
-            rows=8,
+            rows=3,
             width="100%"
         ),
         ui.input_action_button("submit_input", "Submit", class_="btn-primary", style="width: 100%; margin-top: 10px;"),
         id="chat_panel",
         class_="chat-panel",
-        style="display: none;"  # Hidden by default
+        style="display: none;"
     ),
-    # JavaScript for toggling
+
     ui.tags.script("""
         function toggleChatPanel() {
             var panel = document.getElementById('chat_panel');
@@ -119,7 +117,23 @@ app_ui = ui.page_fluid(
             }
         }
     """),
-    # Styles
+
+    ui.tags.script("""
+        const observer = new MutationObserver(() => {
+            const chatMessages = document.getElementById('chat_messages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+        
+        setTimeout(() => {
+            const chatMessages = document.getElementById('chat_messages');
+            if (chatMessages) {
+                observer.observe(chatMessages, { childList: true, subtree: true });
+            }
+        }, 1000);
+    """),
+
     ui.tags.style("""
         .fixed-button {
             position: fixed;
@@ -162,6 +176,7 @@ app_ui = ui.page_fluid(
             border-radius: 10px;
             padding: 20px;
             z-index: 999;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         .close-chat-btn {
             background: none;
@@ -178,102 +193,116 @@ app_ui = ui.page_fluid(
             transform: scale(1.2);
         }
     """),
-    # Include footer HTML
+
     ui.HTML(footer_html)
 )
 
 def server(input, output, session):
-    # Handle the submit button
+    chat_history = reactive.Value([
+        {
+            "role": "system",
+            "content": "You are SPAC, a helpful scientific assistant."
+        }
+    ])
+
+    @output
+    @render.ui
+    def chat_display():
+        history = chat_history.get()
+
+        messages = []
+        for msg in history[1:]:
+            if msg["role"] == "user":
+                messages.append(
+                    ui.div(
+                        ui.strong("You: "),
+                        msg["content"],
+                        style="margin: 8px 0; padding: 10px; background: #e3f2fd; border-radius: 8px; border-left: 3px solid #2196F3;"
+                    )
+                )
+            elif msg["role"] == "assistant":
+                messages.append(
+                    ui.div(
+                        ui.strong("SPAC: "),
+                        msg["content"],
+                        style="margin: 8px 0; padding: 10px; background: #f5f5f5; border-radius: 8px; border-left: 3px solid #4CAF50;"
+                    )
+                )
+
+        return ui.div(*messages) if messages else ui.p("No messages yet. Start chatting!", style="color: #999;")
+
     @reactive.effect
     @reactive.event(input.submit_input)
     def handle_submission():
         user_text = input.user_input()
-        print(f"Submitted: {user_text}")
 
-        # Show notification
-        if user_text != "":
-            ui.notification_show(
-                f"Submitted: {user_text}",
-                type="message",
-                duration=3
-            )
-            # Clear the input after submission
-            ui.update_text_area("user_input", value="")
-        else:
-            ui.notification_show(
-                "No Input",
-                type="warning",
-                duration=3
-            )
+        if not user_text:
+            ui.notification_show("No Input", type="warning", duration=3)
+            return
 
-    # Define a reactive variable to track if data is loaded
+        history = chat_history.get()
+        history.append({"role": "user", "content": user_text})
+        chat_history.set(history)
+
+        try:
+            response = requests.post(
+                "http://host.docker.internal:11434/api/chat",
+                json={
+                    "model": "gemma3:latest",
+                    "messages": history,
+                    "stream": False
+                },
+                timeout=30
+            )
+            response.raise_for_status()
+
+            bot_reply = response.json()["message"]["content"]
+            history.append({"role": "assistant", "content": bot_reply})
+            chat_history.set(history)
+
+            ui.notification_show("SPAC responded!", type="success", duration=2)
+
+        except Exception as e:
+            ui.notification_show(f"Error: {str(e)}", type="error", duration=5)
+            history.pop()
+            chat_history.set(history)
+
+        ui.update_text_area("user_input", value="")
+    # Data initialization - THIS WAS IN THE WRONG PLACE
     data_loaded = reactive.Value(False)
-
-    # Create a reactive variable for the main data
-    adata_main = reactive.Value(preloaded_data)  # Initialize with preloaded data
+    adata_main = reactive.Value(preloaded_data)
 
     data_keys = [
-        "X_data",
-        "obs_data",  # AKA Annotations
-        "obsm_data",
-        "layers_data",
-        "var_data",  # AKA Features
-        "uns_data",
-        "shape_data",
-        "obs_names",
-        "obsm_names",
-        "layers_names",
-        "var_names",
-        "uns_names",
-        "spatial_distance_columns",
-        "df_heatmap",
-        "df_relational",
-        "df_boxplot",
-        "df_histogram2",
-        "df_histogram1",
-        "df_nn",
-        "df_ripley"
+        "X_data", "obs_data", "obsm_data", "layers_data", "var_data", "uns_data",
+        "shape_data", "obs_names", "obsm_names", "layers_names", "var_names",
+        "uns_names", "spatial_distance_columns", "df_heatmap", "df_relational",
+        "df_boxplot", "df_histogram2", "df_histogram1", "df_nn", "df_ripley"
     ]
 
     shared = {
-        "preloaded_data": preloaded_data,  # Preloaded data for initial load
-        "data_loaded": data_loaded,  # Reactive to track if data is loaded
-        "adata_main": adata_main,  # Main anndata object
+        "preloaded_data": preloaded_data,
+        "data_loaded": data_loaded,
+        "adata_main": adata_main,
     }
 
-    # Dynamically create the reactive values for parts of the anndata object
-    # and add them to the shared dictionary
     for key in data_keys:
         shared[key] = reactive.Value(None)
 
     # Individual server components
     getting_started_server(input, output, session, shared)
-
     data_input_server(input, output, session, shared)
-
     effect_update_server(input, output, session, shared)
-
     annotations_server(input, output, session, shared)
-
     features_server(input, output, session, shared)
-
     boxplot_server(input, output, session, shared)
-
     feat_vs_anno_server(input, output, session, shared)
-
     anno_vs_anno_server(input, output, session, shared)
-
     spatial_server(input, output, session, shared)
-
     umap_server(input, output, session, shared)
-
     scatterplot_server(input, output, session, shared)
-
     nearest_neighbor_server(input, output, session, shared)
-
     ripleyL_server(input, output, session, shared)
 
 
-# Create the app with static file serving for www directory
 static_path = os.path.join(os.path.dirname(__file__), "www")
 app = App(app_ui, server, static_assets=static_path)
