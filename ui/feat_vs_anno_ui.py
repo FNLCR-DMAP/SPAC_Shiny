@@ -3,7 +3,6 @@ from utils.accessibility import accessible_slider
 
 
 def feat_vs_anno_ui():
-    # 5. FEAT. VS ANNO. (Heatmap) ----------------------------
     return ui.nav_panel("Feat. Vs Anno.",
         ui.card({"style": "width:100%;"},
             ui.column(
@@ -12,24 +11,24 @@ def feat_vs_anno_ui():
                     ui.column(
                         2,
                         ui.input_select(
-                            "hm1_anno", 
-                            "Select an Annotation", 
+                            "hm1_anno",
+                            "Select an Annotation",
                             choices=[]
                         ),
                         ui.input_select(
-                            "hm1_layer", 
-                            "Select a Table", 
+                            "hm1_layer",
+                            "Select a Table",
                             choices=[]
                         ),
                         ui.input_select(
-                            "hm1_cmap", 
-                            "Select Color Map", 
+                            "hm1_cmap",
+                            "Select Color Map",
                             choices=[
                                 "viridis", "plasma", "inferno", "magma",
-                                "cividis","coolwarm", "RdYlBu", "Spectral",
+                                "cividis", "coolwarm", "RdYlBu", "Spectral",
                                 "PiYG", "PRGn"
                             ]
-                        ),  # Dropdown for color maps
+                        ),
                         accessible_slider(
                             "hm_x_label_rotation",
                             "Rotate X Axis Labels (degrees)",
@@ -39,8 +38,8 @@ def feat_vs_anno_ui():
                             step=1
                         ),
                         ui.input_checkbox(
-                            "dendogram", 
-                            "Include Dendrogram", 
+                            "dendogram",
+                            "Include Dendrogram",
                             False
                         ),
                         ui.div(id="main-hm1_check"),
@@ -48,23 +47,28 @@ def feat_vs_anno_ui():
                         ui.div(id="main-min_num"),
                         ui.div(id="main-max_num"),
                         ui.input_action_button(
-                            "go_hm1", 
-                            "Render Plot", 
-                            class_="btn-success"
+                            "go_hm1",
+                            "Render Plot",
+                            class_="btn-success",
+                            style="width: 100%;"
                         ),
                         ui.div(
-                            {"style": "padding-top: 20px;"},
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("heatmap_stop_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
                             ui.output_ui("download_button_ui")
                         )
                     ),
                     ui.column(
                         10,
                         ui.div(
-                            {"style": "padding-bottom: 100px;"},
-                            ui.output_plot(
-                                "spac_Heatmap", 
-                                width="100%", 
-                                height="100vh"
+                            {"style": "padding-bottom: 100px; overflow: hidden;"},
+                            ui.output_image(
+                                "spac_Heatmap",
+                                width="100%",
+                                height="auto"
                             )
                         )
                     )

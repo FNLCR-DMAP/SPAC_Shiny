@@ -160,6 +160,7 @@ def server(input, output, session):
         'stop_umap1':'umap1',
         'stop_umap2':'umap2',
         'stop_spatial':'spatial',
+        'stop_features':'features',
         'stop_boxplot':'boxplot',
         'stop_sankey':'sankey',
         'stop_relational':'relational',
