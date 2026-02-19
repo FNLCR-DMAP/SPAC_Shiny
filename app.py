@@ -237,10 +237,10 @@ def server(input, output, session):
         user_text = input.user_input()
 
         if not user_text:
-            ui.notification_show("No Input", type="warning", duration=3)
             return
 
-        history = chat_history.get()
+        # Add user message
+        history = chat_history.get().copy()
         history.append({"role": "user", "content": user_text})
         chat_history.set(history)
 
@@ -252,20 +252,24 @@ def server(input, output, session):
                     "messages": history,
                     "stream": False
                 },
-                timeout=30
+                timeout=120
             )
+
+            print("STATUS:", response.status_code)
+            print("RAW:", response.text[:300])
+
             response.raise_for_status()
 
-            bot_reply = response.json()["message"]["content"]
+            data = response.json()
+            bot_reply = data.get("message", {}).get("content", "No response")
+
+            history = chat_history.get().copy()
             history.append({"role": "assistant", "content": bot_reply})
             chat_history.set(history)
 
-            ui.notification_show("SPAC responded!", type="success", duration=2)
-
         except Exception as e:
+            print("ERROR:", e)
             ui.notification_show(f"Error: {str(e)}", type="error", duration=5)
-            history.pop()
-            chat_history.set(history)
 
         ui.update_text_area("user_input", value="")
     # Data initialization - THIS WAS IN THE WRONG PLACE
