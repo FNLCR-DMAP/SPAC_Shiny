@@ -1,6 +1,7 @@
 from shiny import App, ui, reactive, render
 import os
-import requests
+import httpx
+from rag import retrieve_context
 
 
 # Screen imports
@@ -42,12 +43,33 @@ from utils.accessibility import accessible_navigation, apply_slider_accessibilit
 from utils.security import apply_security_enhancements
 
 
-# Read header and footer HTML content
 header_html = read_html_file("header.html")
 footer_html = read_html_file("footer.html")
 
 file_path = "dev_example.pickle"
 preloaded_data = load_data(file_path)
+
+
+def get_app_context(input, shared) -> str:
+    context_parts = []
+
+    try:
+        active_tab = input.active_tab()
+        context_parts.append(f"User is currently on the '{active_tab}' tab.")
+    except:
+        pass
+
+    try:
+        adata = shared["adata_main"].get()
+        if adata is not None:
+            context_parts.append(f"Loaded dataset: {adata.shape[0]} cells x {adata.shape[1]} features.")
+            if len(adata.obs.columns) > 0:
+                context_parts.append(f"Available annotations: {', '.join(adata.obs.columns.tolist())}.")
+            context_parts.append(f"Available features: {', '.join(adata.var_names[:10].tolist())}.")
+    except:
+        pass
+
+    return " ".join(context_parts) if context_parts else ""
 
 
 app_ui = ui.page_fluid(
@@ -69,6 +91,7 @@ app_ui = ui.page_fluid(
         scatterplot_ui(),
         nearest_neighbor_ui(),
         ripleyL_ui(),
+        id="main_tabs"
     ),
 
     ui.input_action_button(
@@ -193,7 +216,30 @@ app_ui = ui.page_fluid(
             transform: scale(1.2);
         }
     """),
+    ui.tags.script("""
+    function getActiveTab() {
+        const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+        if (activeTab) {
+            Shiny.setInputValue('active_tab', activeTab.innerText.trim(), {priority: 'event'});
+        }
+    }
 
+    const tabObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.attributeName === 'aria-selected') {
+                getActiveTab();
+            }
+        });
+    });
+
+    setTimeout(function() {
+        const tabs = document.querySelectorAll('[role="tab"]');
+        tabs.forEach(function(tab) {
+            tabObserver.observe(tab, { attributes: true });
+        });
+        getActiveTab();
+    }, 1000);
+"""),
     ui.HTML(footer_html)
 )
 
@@ -201,16 +247,56 @@ def server(input, output, session):
     chat_history = reactive.Value([
         {
             "role": "system",
-            "content": "You are SPAC, a helpful scientific assistant."
+            "content": """You are SPAC (Spatial Proteomics Analysis Companion), a scientific assistant embedded in an interactive analysis tool for spatial omics data.
+
+            ## Your Role
+            Help researchers understand, navigate, and interpret their spatial transcriptomics or proteomics data. You are knowledgeable, concise, and always ground your answers in the data or analysis currently available in the app.
+            Simplify concepts to make them easily understable for all users including those who have little to no knowledge about the subject matter.
+            
+            ## The App's Capabilities
+            The app has the following analysis tabs the user can interact with:
+            - **Data Input**: Load AnnData (.h5ad) or pickle files containing spatial omics datasets.
+            - **Annotations**: View and explore cell-level metadata (e.g., cell type, tissue region, sample ID).
+            - **Features**: Explore molecular features (e.g., protein or gene expression levels per cell).
+            - **Boxplot**: Compare feature distributions across annotation groups.
+            - **Feature vs. Annotation**: Visualize how a continuous feature varies across categorical annotations.
+            - **Annotation vs. Annotation**: Explore relationships between two categorical annotation columns.
+            - **Spatial**: View cells plotted in their physical tissue coordinates, colored by annotation or feature.
+            - **UMAP**: Explore dimensionality-reduced embeddings to identify clusters and structure.
+            - **Scatterplot**: Plot any two features against each other to identify correlations.
+            - **Nearest Neighbor**: Analyze cellular neighborhoods — which cell types tend to be spatially adjacent.
+            - **Ripley's L**: A spatial statistics tool to test whether cell types are clustered, dispersed, or randomly distributed in tissue.
+            
+            ## Data Format
+            The app works with AnnData objects, a standard format in single-cell and spatial omics analysis:
+            - `adata.X` — the main expression/intensity matrix (cells × features)
+            - `adata.obs` — per-cell metadata (annotations like cell type, region, sample)
+            - `adata.var` — per-feature metadata (e.g., gene/protein names)
+            - `adata.obsm` — multi-dimensional embeddings (e.g., spatial coordinates, UMAP)
+            - `adata.layers` — alternative expression matrices (e.g., normalized, raw counts)
+            - `adata.uns` — unstructured metadata (e.g., color palettes, analysis results)
+            
+            ## How to Respond
+            - If a user asks what a plot or analysis means, explain it in plain scientific language.
+            - If a user asks how to do something in the app, guide them to the correct tab and inputs.
+            - If a user asks a general bioinformatics or spatial biology question, answer clearly and accurately.
+            - If a user asks something outside your scope (e.g., unrelated coding questions), politely redirect them.
+            - Keep responses concise unless the user asks for detail. Avoid unnecessary jargon.
+            - Do not make up results or data values — if you don't know the current state of the data, say so and suggest they check the relevant tab.
+            - Use the current app state provided in each message to give context-aware answers.
+            
+            ## Tone
+            Professional but approachable. You are a knowledgeable lab colleague, not a textbook.
+            """
         }
     ])
 
-    @output
+    @output(suspend_when_hidden=False)
     @render.ui
     def chat_display():
         history = chat_history.get()
-
         messages = []
+
         for msg in history[1:]:
             if msg["role"] == "user":
                 messages.append(
@@ -229,50 +315,59 @@ def server(input, output, session):
                     )
                 )
 
-        return ui.div(*messages) if messages else ui.p("No messages yet. Start chatting!", style="color: #999;")
+        return ui.div(*messages) if messages else ui.p(
+            "No messages yet. Start chatting!", style="color: #999;"
+        )
 
     @reactive.effect
     @reactive.event(input.submit_input)
-    def handle_submission():
+    async def handle_submission():
         user_text = input.user_input()
-
         if not user_text:
             return
 
-        # Add user message
-        history = chat_history.get().copy()
+        ui.update_text_area("user_input", value="")
+        history = list(chat_history.get())
         history.append({"role": "user", "content": user_text})
         chat_history.set(history)
 
+        relevant_context = retrieve_context(user_text, n_results=3)
+        app_context = get_app_context(input, shared)
+
+        rag_message = {
+            "role": "system",
+            "content": f"""Current app state: {app_context}
+
+Relevant sections from the SPAC paper for this query:
+
+{relevant_context}
+
+Use the above as your primary reference when answering."""
+        }
+        messages_to_send = [history[0], rag_message] + history[1:]
+
         try:
-            response = requests.post(
-                "http://host.docker.internal:11434/api/chat",
-                json={
-                    "model": "gemma3:latest",
-                    "messages": history,
-                    "stream": False
-                },
-                timeout=120
-            )
+            async with httpx.AsyncClient(timeout=120) as client:
+                response = await client.post(
+                    "http://host.docker.internal:11434/api/chat",
+                    json={
+                        "model": "gemma3:latest",
+                        "messages": messages_to_send,
+                        "stream": False
+                    }
+                )
+                response.raise_for_status()
+                data = response.json()
 
-            print("STATUS:", response.status_code)
-            print("RAW:", response.text[:300])
+                bot_reply = data["message"]["content"]
 
-            response.raise_for_status()
-
-            data = response.json()
-            bot_reply = data.get("message", {}).get("content", "No response")
-
-            history = chat_history.get().copy()
-            history.append({"role": "assistant", "content": bot_reply})
-            chat_history.set(history)
+                history = list(chat_history.get())
+                history.append({"role": "assistant", "content": bot_reply})
+                chat_history.set(history)
 
         except Exception as e:
-            print("ERROR:", e)
             ui.notification_show(f"Error: {str(e)}", type="error", duration=5)
 
-        ui.update_text_area("user_input", value="")
-    # Data initialization - THIS WAS IN THE WRONG PLACE
     data_loaded = reactive.Value(False)
     adata_main = reactive.Value(preloaded_data)
 
@@ -292,7 +387,6 @@ def server(input, output, session):
     for key in data_keys:
         shared[key] = reactive.Value(None)
 
-    # Individual server components
     getting_started_server(input, output, session, shared)
     data_input_server(input, output, session, shared)
     effect_update_server(input, output, session, shared)
