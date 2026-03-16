@@ -37,7 +37,7 @@ def annotations_ui():
                             "go_h2",
                             "Render Plot",
                             class_="btn-success",
-                            style="width: 100%;"
+                            style="width: 180px;"
                         ),
                         ui.div(
                             {"style": "padding-top: 10px;"},

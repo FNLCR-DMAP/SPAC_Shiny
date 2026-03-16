@@ -95,7 +95,7 @@ def anno_vs_anno_ui():
                             "go_sk1",
                             "Generate Sankey Plot",
                             class_="btn-success",
-                            style="width: 100%;"
+                            style="width: 180px;"
                         ),
                         ui.div(
                             {"style": "padding-top: 10px;"},
@@ -148,7 +148,7 @@ def anno_vs_anno_ui():
                             "go_rhm1",
                             "Generate Heatmap",
                             class_="btn-success",
-                            style="width: 100%;"
+                            style="width: 180px;"
                         ),
                         ui.div(
                             {"style": "padding-top: 10px;"},

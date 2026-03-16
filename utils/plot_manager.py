@@ -162,7 +162,7 @@ class PlotManager:
             reactive.invalidate_later(1.0)
 
     def stop_button_ui(self, button_id, label="Cancel Render",
-                       class_="btn-danger", style="width: 100%;", **kwargs):
+                       class_="btn-danger", style="width: 180px;", **kwargs):
         """
         Return a cancel button if calculating, else None.
         Use inside a @render.ui function.
@@ -188,7 +188,7 @@ class PlotManager:
         return None
 
     def download_button_ui(self, download_id, label="Download Data",
-                           class_="btn-warning", style="width: 100%;", **kwargs):
+                           class_="btn-warning", style="width: 180px;", **kwargs):
         """
         Return a download button if data exists and not calculating, else None.
         Use inside a @render.ui function.
@@ -220,7 +220,7 @@ class PlotManager:
         return None
 
     def plot_download_button_ui(self, download_id, label="Download Plot",
-                                class_="btn-primary", style="width: 100%;", **kwargs):
+                                class_="btn-primary", style="width: 180px;", **kwargs):
         """
         Show download plot button when not calculating and PNG result exists.
         Only works for process-based plots (matplotlib -> PNG bytes).
