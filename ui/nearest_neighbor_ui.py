@@ -235,6 +235,10 @@ def nearest_neighbor_ui():
                                     {"style": "padding-top: 10px;"},
                                     ui.output_ui("download_button_ui_nn")
                                 ),
+                                ui.div(
+                                    {"style": "padding-top: 10px;"},
+                                    ui.output_ui("download_nn_plot_button_ui")
+                                ),
                             )
                         )
                     ),

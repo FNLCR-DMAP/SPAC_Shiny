@@ -161,7 +161,8 @@ class PlotManager:
         else:
             reactive.invalidate_later(1.0)
 
-    def stop_button_ui(self, button_id, label="Cancel Render"):
+    def stop_button_ui(self, button_id, label="Cancel Render",
+                       class_="btn-danger", style="width: 100%;", **kwargs):
         """
         Return a cancel button if calculating, else None.
         Use inside a @render.ui function.
@@ -172,15 +173,22 @@ class PlotManager:
             The input ID for the stop button e.g. 'stop_boxplot'
         label : str
             Button label text
+        class_ : str
+            CSS class for button styling
+        style : str
+            Inline CSS styling
+        **kwargs
+            Additional HTML attributes to pass to button
         """
         if self.is_calculating.get():
             return ui.input_action_button(
                 button_id, label,
-                class_="btn-danger", style="width: 100%;"
+                class_=class_, style=style, **kwargs
             )
         return None
 
-    def download_button_ui(self, download_id, label="Download Data"):
+    def download_button_ui(self, download_id, label="Download Data",
+                           class_="btn-warning", style="width: 100%;", **kwargs):
         """
         Return a download button if data exists and not calculating, else None.
         Use inside a @render.ui function.
@@ -191,6 +199,12 @@ class PlotManager:
             The input ID for the download button e.g. 'download_boxplot'
         label : str
             Button label text
+        class_ : str
+            CSS class for button styling
+        style : str
+            Inline CSS styling
+        **kwargs
+            Additional HTML attributes to pass to button
         """
         if not self.is_calculating.get():
             try:
@@ -199,8 +213,65 @@ class PlotManager:
                         self.shared[self.data_key].get() is not None):
                     return ui.download_button(
                         download_id, label,
-                        class_="btn-warning", style="width: 100%;"
+                        class_=class_, style=style, **kwargs
                     )
             except (KeyError, AttributeError):
                 pass
         return None
+
+    def plot_download_button_ui(self, download_id, label="Download Plot",
+                                class_="btn-primary", style="width: 100%;", **kwargs):
+        """
+        Show download plot button when not calculating and PNG result exists.
+        Only works for process-based plots (matplotlib -> PNG bytes).
+        Use inside a @render.ui function.
+
+        Parameters
+        ----------
+        download_id : str
+            The input ID for the download button e.g. 'download_histogram2_plot'
+        label : str
+            Button label text
+        class_ : str
+            CSS class for button styling
+        style : str
+            Inline CSS styling
+        **kwargs
+            Additional HTML attributes to pass to button
+        """
+        if not self.is_calculating.get():
+            try:
+                result = self.result.get()
+                # Check if result is PNG bytes (not a tuple like boxplot)
+                if result is not None and isinstance(result, bytes):
+                    return ui.download_button(
+                        download_id, label,
+                        class_=class_, style=style, **kwargs
+                    )
+            except (KeyError, AttributeError):
+                pass
+        return None
+
+    def create_plot_download_handler(self):
+        """
+        Returns download handler for PNG plot (process-based only).
+        The PNG bytes are already in pm.result from the worker.
+        Use with @render.download decorator.
+
+        Returns
+        -------
+        callable
+            Function that returns (bytes, mimetype) for download
+
+        Example
+        -------
+        @render.download(filename="my_plot.png")
+        def download_my_plot():
+            return pm.create_plot_download_handler()()
+        """
+        def handler():
+            result = self.result.get()
+            if result is not None and isinstance(result, bytes):
+                return result, "image/png"
+            return None
+        return handler

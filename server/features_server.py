@@ -121,6 +121,13 @@ def features_server(input, output, session, shared):
         if df is not None:
             return df.to_csv(index=False).encode("utf-8"), "text/csv"
         return None
+    @render.ui
+    def download_features_plot_button_ui():
+        return pm.plot_download_button_ui('download_histogram1_plot')
+
+    @render.download(filename="features_plot.png")
+    def download_histogram1_plot():
+        return pm.create_plot_download_handler()()
 
     histogram_ui_initialized = reactive.Value(False)
 

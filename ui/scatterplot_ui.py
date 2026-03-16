@@ -41,6 +41,10 @@ def scatterplot_ui():
                             {"style": "padding-top: 10px;"},
                             ui.output_ui("scatterplot_stop_button_ui")
                         ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("download_scatter_plot_button_ui")
+                        ),
                     ),
                     ui.column(
                         10,

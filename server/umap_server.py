@@ -309,3 +309,19 @@ def umap_server(input, output, session, shared):
     @render.ui
     def umap2_stop_button_ui():
         return pm2.stop_button_ui('stop_umap2')
+
+    @render.ui
+    def download_umap1_plot_button_ui():
+        return pm1.plot_download_button_ui('download_umap1_plot')
+
+    @render.download(filename="umap1_plot.png")
+    def download_umap1_plot():
+        return pm1.create_plot_download_handler()()
+
+    @render.ui
+    def download_umap2_plot_button_ui():
+        return pm2.plot_download_button_ui('download_umap2_plot')
+
+    @render.download(filename="umap2_plot.png")
+    def download_umap2_plot():
+        return pm2.create_plot_download_handler()()

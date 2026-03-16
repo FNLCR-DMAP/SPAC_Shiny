@@ -252,3 +252,11 @@ def nearest_neighbor_server(input, output, session, shared):
     @render.ui
     def download_button_ui_nn():
         return pm.download_button_ui('download_df_nn')
+
+    @render.ui
+    def download_nn_plot_button_ui():
+        return pm.plot_download_button_ui('download_nn_plot')
+
+    @render.download(filename="nearest_neighbor_plot.png")
+    def download_nn_plot():
+        return pm.create_plot_download_handler()()

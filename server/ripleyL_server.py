@@ -136,3 +136,11 @@ def ripleyL_server(input, output, session, shared):
     @render.ui
     def download_button_ui_rl():
         return pm.download_button_ui('download_df_rl')
+
+    @render.ui
+    def download_ripley_plot_button_ui():
+        return pm.plot_download_button_ui('download_ripley_plot')
+
+    @render.download(filename="ripley_plot.png")
+    def download_ripley_plot():
+        return pm.create_plot_download_handler()()

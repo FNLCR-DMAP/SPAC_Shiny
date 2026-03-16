@@ -59,7 +59,11 @@ def feat_vs_anno_ui():
                         ui.div(
                             {"style": "padding-top: 10px;"},
                             ui.output_ui("download_button_ui")
-                        )
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("download_heatmap_plot_button_ui")
+                        ),
                     ),
                     ui.column(
                         10,

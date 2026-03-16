@@ -186,3 +186,11 @@ def scatterplot_server(input, output, session, shared):
     @render.ui
     def scatterplot_stop_button_ui():
         return pm.stop_button_ui('stop_scatterplot')
+
+    @render.ui
+    def download_scatter_plot_button_ui():
+        return pm.plot_download_button_ui('download_scatter_plot')
+
+    @render.download(filename="scatterplot.png")
+    def download_scatter_plot():
+        return pm.create_plot_download_handler()()

@@ -102,6 +102,14 @@ def annotations_server(input, output, session, shared):
         return None
 
     histogram2_ui_initialized = reactive.Value(False)
+    
+    @render.ui
+    def download_histogram_plot_button_ui():
+        return pm.plot_download_button_ui('download_histogram2_plot')
+
+    @render.download(filename="annotation_plot.png")
+    def download_histogram2_plot():
+        return pm.create_plot_download_handler()()
 
     @reactive.effect
     def histogram_reactivity_2():

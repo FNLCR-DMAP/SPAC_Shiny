@@ -131,6 +131,14 @@ def feat_vs_anno_server(input, output, session, shared):
             return df.to_csv(index=False).encode("utf-8"), "text/csv"
         return None
 
+    @render.ui
+    def download_heatmap_plot_button_ui():
+        return pm.plot_download_button_ui('download_heatmap_plot')
+
+    @render.download(filename="heatmap_plot.png")
+    def download_heatmap_plot():
+        return pm.create_plot_download_handler()()
+
     heatmap_ui_initialized = reactive.Value(False)
 
     @reactive.effect

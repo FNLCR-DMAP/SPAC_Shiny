@@ -42,6 +42,10 @@ def umap_ui():
                             ui.output_ui("umap1_stop_button_ui")
                         ),
                         ui.div(
+                            {"style": "padding-top: 20px; padding-bottom: 20px;"},
+                            ui.output_ui("download_umap1_plot_button_ui")
+                        ),
+                        ui.div(
                             {"style": "padding-top: 10px;"},
                             ui.output_image(
                                 "spac_UMAP",
@@ -82,6 +86,10 @@ def umap_ui():
                         ui.div(
                             {"style": "padding-top: 10px;"},
                             ui.output_ui("umap2_stop_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 20px; padding-bottom: 20px;"},
+                            ui.output_ui("download_umap2_plot_button_ui")
                         ),
                         ui.div(
                             {"style": "padding-top: 10px;"},
