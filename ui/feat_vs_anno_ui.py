@@ -79,6 +79,8 @@ def feat_vs_anno_ui():
                                 "Select a Table",
                                 choices=[]
                             ),
+                            # Dynamic feature selector (populated by server)
+                            ui.output_ui("hm1_features_ui"),
 
                             ui.hr(),
 
@@ -98,30 +100,106 @@ def feat_vs_anno_ui():
                                             "viridis", "plasma", "inferno",
                                             "magma", "cividis", "coolwarm",
                                             "RdYlBu", "Spectral", "PiYG",
-                                            "PRGn"
+                                            "PRGn", "seismic"
                                         ],
-                                        selected="viridis"
-                                    ),  # Dropdown for color maps
+                                        selected="seismic"
+                                    ),
+                                    ui.input_select(
+                                        "hm1_z_score",
+                                        "Z Score",
+                                        choices=[
+                                            "None", "feature", "annotation"
+                                        ],
+                                        selected="None"
+                                    ),
+                                    ui.input_select(
+                                        "hm1_standard_scale",
+                                        "Standard Scale",
+                                        choices=[
+                                            "None", "0", "1"
+                                        ],
+                                        selected="None"
+                                    ),
+                                    ui.input_checkbox(
+                                        "hm1_swap_axes",
+                                        "Swap Axes",
+                                        value=False
+                                    ),
                                     ui.input_checkbox(
                                         "hm1_dendogram",
                                         "Include Dendrogram",
-                                        False
+                                        True
                                     ),
                                     ui.panel_conditional(
                                         "input.hm1_dendogram",
                                         ui.input_checkbox(
                                             "hm1_feat_dendro",
                                             "Feature Cluster",
-                                            value=False
+                                            value=True
                                         ),
                                         ui.input_checkbox(
                                             "hm1_anno_dendro",
                                             "Annotation Cluster",
-                                            value=False
+                                            value=True
                                         ),
                                     ),
                                     ui.div(id="main-hm1_min_num"),
                                     ui.div(id="main-hm1_max_num"),
+                                ),
+                            ),
+
+                            ui.hr(),
+
+                            # Figure configuration in expandable section
+                            ui.div(
+                                ui.input_checkbox(
+                                    "hm1_show_figure_config",
+                                    "Show Figure Configuration",
+                                    value=False
+                                ),
+                                ui.panel_conditional(
+                                    "input.hm1_show_figure_config",
+                                    ui.input_text(
+                                        "hm1_figure_title",
+                                        "Figure Title",
+                                        value="Hierarchical Heatmap"
+                                    ),
+                                    ui.input_numeric(
+                                        "hm1_figure_width",
+                                        "Figure Width",
+                                        min=4,
+                                        max=30,
+                                        value=15
+                                    ),
+                                    ui.input_numeric(
+                                        "hm1_figure_height",
+                                        "Figure Height",
+                                        min=4,
+                                        max=30,
+                                        value=12
+                                    ),
+                                    ui.input_numeric(
+                                        "hm1_figure_dpi",
+                                        "Figure DPI",
+                                        min=72,
+                                        max=600,
+                                        value=300
+                                    ),
+                                    ui.input_numeric(
+                                        "hm1_font_size",
+                                        "Font Size",
+                                        min=4,
+                                        max=24,
+                                        value=14
+                                    ),
+                                    ui.input_numeric(
+                                        "hm1_matrix_ratio",
+                                        "Matrix Plot Ratio",
+                                        min=0.1,
+                                        max=1.0,
+                                        value=0.8,
+                                        step=0.1
+                                    ),
                                 ),
                             ),
 
@@ -196,7 +274,6 @@ def feat_vs_anno_ui():
                                     "height: 85vh; overflow: auto; "
                                     "padding-left: 15px;"
                                 ),
-                                # "style": "padding-bottom: 100px;"
                             },
                             ui.output_plot(
                                 "spac_Heatmap",

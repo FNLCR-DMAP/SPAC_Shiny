@@ -222,7 +222,7 @@ def nearest_neighbor_server(input, output, session, shared):
                 # Call run_from_json with virtual path
                 figs, df_data = run_from_json(
                     json_path=params,
-                    save_results=False,  # Return figures directly
+                    save_to_disk=False,  # Return figures directly
                     show_plot=False
                 )
             finally:
