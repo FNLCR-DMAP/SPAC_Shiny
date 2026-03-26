@@ -62,14 +62,52 @@ def get_app_context(input, shared) -> str:
     try:
         adata = shared["adata_main"].get()
         if adata is not None:
+            # Shape
             context_parts.append(f"Loaded dataset: {adata.shape[0]} cells x {adata.shape[1]} features.")
-            if len(adata.obs.columns) > 0:
-                context_parts.append(f"Available annotations: {', '.join(adata.obs.columns.tolist())}.")
-            context_parts.append(f"Available features: {', '.join(adata.var_names[:10].tolist())}.")
-    except:
-        pass
 
-    return " ".join(context_parts) if context_parts else ""
+            # All annotation columns + their unique values and counts
+            if len(adata.obs.columns) > 0:
+                context_parts.append(f"Annotation columns: {', '.join(adata.obs.columns.tolist())}.")
+                for col in adata.obs.columns:
+                    try:
+                        if adata.obs[col].dtype.name in ['category', 'object']:
+                            val_counts = adata.obs[col].value_counts()
+                            top = val_counts.head(10)
+                            summary = ", ".join([f"{k} (n={v})" for k, v in top.items()])
+                            context_parts.append(f"  - '{col}' has {adata.obs[col].nunique()} unique values: {summary}{'...' if len(val_counts) > 10 else ''}.")
+                        else:
+                            # Numeric annotation
+                            context_parts.append(
+                                f"  - '{col}' is numeric: min={adata.obs[col].min():.3f}, "
+                                f"max={adata.obs[col].max():.3f}, mean={adata.obs[col].mean():.3f}."
+                            )
+                    except:
+                        pass
+
+            # All features
+            context_parts.append(f"All features ({adata.shape[1]} total): {', '.join(adata.var_names.tolist())}.")
+
+            # Layers
+            if hasattr(adata, 'layers') and len(adata.layers) > 0:
+                context_parts.append(f"Available layers: {', '.join(adata.layers.keys())}.")
+
+            # Embeddings (obsm)
+            if hasattr(adata, 'obsm') and len(adata.obsm) > 0:
+                context_parts.append(f"Available embeddings (obsm): {', '.join(adata.obsm.keys())}.")
+
+            # Unstructured metadata keys
+            if hasattr(adata, 'uns') and len(adata.uns) > 0:
+                context_parts.append(f"Unstructured metadata keys: {', '.join(adata.uns.keys())}.")
+
+            # Spatial coordinates availability
+            spatial_keys = [k for k in adata.obsm.keys() if 'spatial' in k.lower()] if hasattr(adata, 'obsm') else []
+            if spatial_keys:
+                context_parts.append(f"Spatial coordinate keys: {', '.join(spatial_keys)}.")
+
+    except Exception as e:
+        context_parts.append(f"Error reading dataset context: {str(e)}")
+
+    return " ".join(context_parts) if context_parts else "No dataset currently loaded."
 
 
 app_ui = ui.page_fluid(
