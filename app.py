@@ -43,12 +43,71 @@ from utils.accessibility import accessible_navigation, apply_slider_accessibilit
 from utils.security import apply_security_enhancements
 
 
-header_html = read_html_file("header.html")
-footer_html = read_html_file("footer.html")
+# ---------------------------------------------------------------------------
+# Configuration — all tuneable via environment variables
+# ---------------------------------------------------------------------------
 
-file_path = "dev_example.pickle"
-preloaded_data = load_data(file_path)
+# Path to the preloaded AnnData pickle/h5ad file.
+# Override with: DATA_PATH=/path/to/your/file.pickle
+DATA_PATH = os.getenv("DATA_PATH", "dev_example.pickle")
 
+# Ollama API base URL.
+# - Inside Docker:  use the default (host.docker.internal reaches the host machine)
+# - Outside Docker: set OLLAMA_URL=http://localhost:11434
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
+
+# Ollama model name.
+# Override with: OLLAMA_MODEL=llama3:latest
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:latest")
+
+# Number of RAG context chunks to retrieve per query.
+RAG_N_RESULTS = int(os.getenv("RAG_N_RESULTS", "3"))
+
+# Request timeout in seconds for Ollama API calls.
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
+
+
+# ---------------------------------------------------------------------------
+# Load optional HTML assets (header/footer) with graceful fallbacks
+# ---------------------------------------------------------------------------
+
+def safe_read_html(filename: str, fallback: str = "") -> str:
+    """Read an HTML file if it exists, otherwise return a fallback string."""
+    try:
+        return read_html_file(filename)
+    except Exception:
+        print(f"[WARNING] Could not load '{filename}' — skipping.")
+        return fallback
+
+header_html = safe_read_html("header.html")
+footer_html = safe_read_html("footer.html")
+
+
+# ---------------------------------------------------------------------------
+# Preload dataset (optional — app still starts if no file is found)
+# ---------------------------------------------------------------------------
+
+def safe_load_data(path: str):
+    """Load dataset if the file exists, otherwise return None with a warning."""
+    if not os.path.exists(path):
+        print(f"[WARNING] Data file '{path}' not found. "
+              f"Set the DATA_PATH environment variable to point to your file. "
+              f"You can still load data at runtime via the Data Input tab.")
+        return None
+    try:
+        data = load_data(path)
+        print(f"[INFO] Preloaded dataset from '{path}'.")
+        return data
+    except Exception as e:
+        print(f"[ERROR] Failed to load data from '{path}': {e}")
+        return None
+
+preloaded_data = safe_load_data(DATA_PATH)
+
+
+# ---------------------------------------------------------------------------
+# App context builder
+# ---------------------------------------------------------------------------
 
 def get_app_context(input, shared) -> str:
     context_parts = []
@@ -56,16 +115,14 @@ def get_app_context(input, shared) -> str:
     try:
         active_tab = input.active_tab()
         context_parts.append(f"User is currently on the '{active_tab}' tab.")
-    except:
+    except Exception:
         pass
 
     try:
         adata = shared["adata_main"].get()
         if adata is not None:
-            # Shape
             context_parts.append(f"Loaded dataset: {adata.shape[0]} cells x {adata.shape[1]} features.")
 
-            # All annotation columns + their unique values and counts
             if len(adata.obs.columns) > 0:
                 context_parts.append(f"Annotation columns: {', '.join(adata.obs.columns.tolist())}.")
                 for col in adata.obs.columns:
@@ -74,33 +131,33 @@ def get_app_context(input, shared) -> str:
                             val_counts = adata.obs[col].value_counts()
                             top = val_counts.head(10)
                             summary = ", ".join([f"{k} (n={v})" for k, v in top.items()])
-                            context_parts.append(f"  - '{col}' has {adata.obs[col].nunique()} unique values: {summary}{'...' if len(val_counts) > 10 else ''}.")
+                            context_parts.append(
+                                f"  - '{col}' has {adata.obs[col].nunique()} unique values: "
+                                f"{summary}{'...' if len(val_counts) > 10 else ''}."
+                            )
                         else:
-                            # Numeric annotation
                             context_parts.append(
                                 f"  - '{col}' is numeric: min={adata.obs[col].min():.3f}, "
                                 f"max={adata.obs[col].max():.3f}, mean={adata.obs[col].mean():.3f}."
                             )
-                    except:
+                    except Exception:
                         pass
 
-            # All features
             context_parts.append(f"All features ({adata.shape[1]} total): {', '.join(adata.var_names.tolist())}.")
 
-            # Layers
             if hasattr(adata, 'layers') and len(adata.layers) > 0:
                 context_parts.append(f"Available layers: {', '.join(adata.layers.keys())}.")
 
-            # Embeddings (obsm)
             if hasattr(adata, 'obsm') and len(adata.obsm) > 0:
                 context_parts.append(f"Available embeddings (obsm): {', '.join(adata.obsm.keys())}.")
 
-            # Unstructured metadata keys
             if hasattr(adata, 'uns') and len(adata.uns) > 0:
                 context_parts.append(f"Unstructured metadata keys: {', '.join(adata.uns.keys())}.")
 
-            # Spatial coordinates availability
-            spatial_keys = [k for k in adata.obsm.keys() if 'spatial' in k.lower()] if hasattr(adata, 'obsm') else []
+            spatial_keys = (
+                [k for k in adata.obsm.keys() if 'spatial' in k.lower()]
+                if hasattr(adata, 'obsm') else []
+            )
             if spatial_keys:
                 context_parts.append(f"Spatial coordinate keys: {', '.join(spatial_keys)}.")
 
@@ -109,6 +166,10 @@ def get_app_context(input, shared) -> str:
 
     return " ".join(context_parts) if context_parts else "No dataset currently loaded."
 
+
+# ---------------------------------------------------------------------------
+# UI
+# ---------------------------------------------------------------------------
 
 app_ui = ui.page_fluid(
     apply_security_enhancements(),
@@ -162,7 +223,10 @@ app_ui = ui.page_fluid(
             rows=3,
             width="100%"
         ),
-        ui.input_action_button("submit_input", "Submit", class_="btn-primary", style="width: 100%; margin-top: 10px;"),
+        ui.input_action_button(
+            "submit_input", "Submit", class_="btn-primary",
+            style="width: 100%; margin-top: 10px;"
+        ),
         id="chat_panel",
         class_="chat-panel",
         style="display: none;"
@@ -186,7 +250,7 @@ app_ui = ui.page_fluid(
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
         });
-        
+
         setTimeout(() => {
             const chatMessages = document.getElementById('chat_messages');
             if (chatMessages) {
@@ -254,32 +318,39 @@ app_ui = ui.page_fluid(
             transform: scale(1.2);
         }
     """),
+
     ui.tags.script("""
-    function getActiveTab() {
-        const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
-        if (activeTab) {
-            Shiny.setInputValue('active_tab', activeTab.innerText.trim(), {priority: 'event'});
-        }
-    }
-
-    const tabObserver = new MutationObserver(function(mutations) {
-        mutations.forEach(function(mutation) {
-            if (mutation.attributeName === 'aria-selected') {
-                getActiveTab();
+        function getActiveTab() {
+            const activeTab = document.querySelector('[role="tab"][aria-selected="true"]');
+            if (activeTab) {
+                Shiny.setInputValue('active_tab', activeTab.innerText.trim(), {priority: 'event'});
             }
-        });
-    });
+        }
 
-    setTimeout(function() {
-        const tabs = document.querySelectorAll('[role="tab"]');
-        tabs.forEach(function(tab) {
-            tabObserver.observe(tab, { attributes: true });
+        const tabObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.attributeName === 'aria-selected') {
+                    getActiveTab();
+                }
+            });
         });
-        getActiveTab();
-    }, 1000);
-"""),
+
+        setTimeout(function() {
+            const tabs = document.querySelectorAll('[role="tab"]');
+            tabs.forEach(function(tab) {
+                tabObserver.observe(tab, { attributes: true });
+            });
+            getActiveTab();
+        }, 1000);
+    """),
+
     ui.HTML(footer_html)
 )
+
+
+# ---------------------------------------------------------------------------
+# Server
+# ---------------------------------------------------------------------------
 
 def server(input, output, session):
     chat_history = reactive.Value([
@@ -369,7 +440,7 @@ def server(input, output, session):
         history.append({"role": "user", "content": user_text})
         chat_history.set(history)
 
-        relevant_context = retrieve_context(user_text, n_results=3)
+        relevant_context = retrieve_context(user_text, n_results=RAG_N_RESULTS)
         app_context = get_app_context(input, shared)
 
         rag_message = {
@@ -385,11 +456,11 @@ Use the above as your primary reference when answering."""
         messages_to_send = [history[0], rag_message] + history[1:]
 
         try:
-            async with httpx.AsyncClient(timeout=120) as client:
+            async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
                 response = await client.post(
-                    "http://host.docker.internal:11434/api/chat",
+                    f"{OLLAMA_URL}/api/chat",
                     json={
-                        "model": "gemma3:latest",
+                        "model": OLLAMA_MODEL,
                         "messages": messages_to_send,
                         "stream": False
                     }
@@ -403,8 +474,22 @@ Use the above as your primary reference when answering."""
                 history.append({"role": "assistant", "content": bot_reply})
                 chat_history.set(history)
 
+        except httpx.ConnectError:
+            ui.notification_show(
+                f"Could not connect to Ollama at {OLLAMA_URL}. "
+                f"Is Ollama running? If running outside Docker, set OLLAMA_URL=http://localhost:11434.",
+                type="error",
+                duration=8
+            )
+        except httpx.TimeoutException:
+            ui.notification_show(
+                f"Request to Ollama timed out after {OLLAMA_TIMEOUT}s. "
+                f"Try increasing OLLAMA_TIMEOUT or using a smaller model.",
+                type="error",
+                duration=8
+            )
         except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error", duration=5)
+            ui.notification_show(f"Unexpected error: {str(e)}", type="error", duration=5)
 
     data_loaded = reactive.Value(False)
     adata_main = reactive.Value(preloaded_data)
