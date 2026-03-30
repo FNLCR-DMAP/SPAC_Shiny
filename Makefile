@@ -45,11 +45,10 @@ run: build
 
 # Run with development volume mount
 run-dev: build
-	@echo "Starting SPAC Shiny container in development mode..."
+	@echo "Starting SPAC Shiny container in development mode (with auto-reload)..."
 	@echo "App will be available at: http://localhost:8001"
-	docker run -d --name spac-shiny-app -p 8001:8000 -v $(PWD):/app spac-shiny
-
-
+	docker run -d --name spac-shiny-app -p 8001:8000 -v $(PWD):/app spac-shiny \
+		python -m shiny run app.py --host 0.0.0.0 --port 8000 --reload
 
 # Stop the container
 stop:

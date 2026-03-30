@@ -56,7 +56,7 @@ These tools are integral to the "scverse" ecosystem, ensuring compatibility with
 *   **The Data Mine Project at Purdue University** - Framework and resources for collaborative student-led research
 
 ### Development Team
-*   **Project Team Members:**
+*   **Project Team Members (2024-2025):**
     *   Aileen Chow
     *   Ahmad Abdallah
     *   Arshnoor Randhawa
@@ -72,11 +72,21 @@ These tools are integral to the "scverse" ecosystem, ensuring compatibility with
     *   Suriya Selvarajan
     *   Qianyue Wang
     *   Andree Kolliegbo
+*   **Project Team Members (2025-2026):**
+    *   Arjun Chhabra
+    *   Boqiang Zhang
+    *   Heaven Golladay-Watkins
+    *   Mousumi Saha
+    *   Nila Kumar
+    *   Noah Lee
+    *   Saran Nagubandi
+    *   Sungmin Lee
 
 *   **Teaching Assistants from Purdue's Data Mine:**
-    *   Alex Liu
-    *   Omar Eldaghar
-    *   Thomas Sheeley
+    *   Alex Liu (2024-2025)
+    *   Omar Eldaghar (2024-2025)
+    *   Thomas Sheeley (2024-2025)
+    *   Ramya Rajaram (2025-2026)
 
 *   **Additional Support:**
     *   Fang Liu and Rui He
