@@ -1,25 +1,13 @@
 """
 Nearest neighbor visualization UI module for SPAC Shiny application.
-
-This module provides the user interface components for visualizing precomputed
-nearest neighbor distances using the visualize_nearest_neighbor functionality.
 """
 
 from shiny import ui
 
 
 def nearest_neighbor_ui():
-    """
-    Create the nearest neighbor visualization UI.
-    
-    Returns
-    -------
-    shiny.ui.NavPanel
-        UI components for the nearest neighbor visualization feature
-    """
     return ui.nav_panel(
         "Nearest Neighbors",
-        # Custom CSS for improved layout
         ui.tags.style("""
             .nn-controls-panel {
                 background-color: #f8f9fa;
@@ -66,8 +54,6 @@ def nearest_neighbor_ui():
                             ui.div(
                                 ui.h4("Core Parameters",
                                       class_="accessible-heading"),
-                                
-                                # Core functionality parameters
                                 ui.input_select(
                                     "nn_source_label",
                                     "Source Anchor Cell Label",
@@ -88,9 +74,10 @@ def nearest_neighbor_ui():
                                     ui.tags.span(
                                         "ImageID",
                                         ui.tags.span(
-                                            "\u24D8",  # Unicode for circled 'i'
+                                            "\u24D8",
                                             title=(
-                                                "The annotation name used to distinguish different images or samples. "
+                                                "The annotation name used to distinguish "
+                                                "different images or samples. "
                                                 "If there's only one image, set to 'None.'"
                                             ),
                                             tabindex="0",
@@ -100,10 +87,7 @@ def nearest_neighbor_ui():
                                     ),
                                     choices=["None"]
                                 ),
-                                
                                 ui.hr(),
-                                
-                                # Plot configuration in expandable section
                                 ui.div(
                                     ui.input_checkbox(
                                         "nn_show_plot_config",
@@ -150,10 +134,7 @@ def nearest_neighbor_ui():
                                         ui.output_ui("nn_color_mapping_ui"),
                                     )
                                 ),
-                                
                                 ui.hr(),
-                                
-                                # Figure configuration in expandable section
                                 ui.div(
                                     ui.input_checkbox(
                                         "nn_show_figure_config",
@@ -211,8 +192,6 @@ def nearest_neighbor_ui():
                                         ),
                                     )
                                 ),
-                                
-                                # Axis settings in expandable section
                                 ui.div(
                                     ui.input_checkbox(
                                         "nn_show_axis_settings",
@@ -242,7 +221,6 @@ def nearest_neighbor_ui():
                                         ),
                                     )
                                 ),
-                                
                                 ui.br(),
                                 ui.input_action_button(
                                     "go_nn_viz",
@@ -250,8 +228,16 @@ def nearest_neighbor_ui():
                                     class_="btn-success w-100"
                                 ),
                                 ui.div(
-                                    {"style": "padding-top: 15px;"},
+                                    {"style": "padding-top: 10px;"},
+                                    ui.output_ui("nn_stop_button_ui")
+                                ),
+                                ui.div(
+                                    {"style": "padding-top: 10px;"},
                                     ui.output_ui("download_button_ui_nn")
+                                ),
+                                ui.div(
+                                    {"style": "padding-top: 10px;"},
+                                    ui.output_ui("download_nn_plot_button_ui")
                                 ),
                             )
                         )
@@ -266,10 +252,10 @@ def nearest_neighbor_ui():
                                     "padding-left: 15px;"
                                 )
                             },
-                            ui.output_plot(
+                            ui.output_image(
                                 "nn_visualization_plot",
                                 width="100%",
-                                height="700px"
+                                height="auto"
                             )
                         )
                     )
@@ -277,4 +263,3 @@ def nearest_neighbor_ui():
             ),
         )
     )
-

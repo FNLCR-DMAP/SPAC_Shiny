@@ -2,12 +2,8 @@ from shiny import ui
 from utils.accessibility import accessible_slider
 from shinywidgets import output_widget
 
-# TODO: Stratify by region + slide at same time breaks
-# TODO: Also, selecting feature then trying to stratify breaks
-
 
 def spatial_ui():
-    # 7. SPATIAL PANEL ---------------------------------------
     return ui.nav_panel(
         "Spatial",
         ui.card(
@@ -50,8 +46,13 @@ def spatial_ui():
                         ui.input_action_button(
                             "go_sp1",
                             "Render Plot",
-                            class_="btn-success"
-                        )
+                            class_="btn-success",
+                            style="width: 180px;"
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("spatial_stop_button_ui")
+                        ),
                     ),
                     ui.column(
                         10,
@@ -65,4 +66,3 @@ def spatial_ui():
             )
         )
     )
-

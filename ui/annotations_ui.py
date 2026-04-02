@@ -3,7 +3,6 @@ from utils.accessibility import accessible_slider
 
 
 def annotations_ui():
-    # 2. ANNOTATIONS PANEL (Histogram of annotations) --------
     return ui.nav_panel(
         "Annotations",
         ui.card(
@@ -37,21 +36,30 @@ def annotations_ui():
                         ui.input_action_button(
                             "go_h2",
                             "Render Plot",
-                            class_="btn-success"
+                            class_="btn-success",
+                            style="width: 180px;"
                         ),
                         ui.div(
-                            {"style": "padding-top: 20px;"},
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("annotations_stop_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
                             ui.output_ui("download_histogram_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("download_histogram_plot_button_ui")
                         ),
                     ),
                     ui.column(
                         10,
                         ui.div(
-                            {"style": "padding-bottom: 100px;"},
-                            ui.output_plot(
+                            {"style": "padding-bottom: 100px; overflow: hidden;"},
+                            ui.output_image(
                                 "spac_Histogram_2",
                                 width="100%",
-                                height="80vh"
+                                height="auto"
                             )
                         )
                     )

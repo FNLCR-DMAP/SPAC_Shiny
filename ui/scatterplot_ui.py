@@ -1,7 +1,5 @@
 from shiny import ui
-
 def scatterplot_ui():
-    # 9. SCATTERPLOT PANEL ------------------------------------
     return ui.nav_panel(
         "Scatterplot",
         ui.card(
@@ -36,19 +34,30 @@ def scatterplot_ui():
                         ui.input_action_button(
                             "go_scatter",
                             "Render Plot",
-                            class_="btn-success"
-                        )
+                            class_="btn-success",
+                            style="width: 180px;"
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("scatterplot_stop_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("download_scatter_plot_button_ui")
+                        ),
                     ),
                     ui.column(
                         10,
-                        ui.output_plot(
-                            "spac_Scatter",
-                            width="100%",
-                            height="80vh"
+                        ui.div(
+                            {"style": "padding-bottom: 100px; overflow: hidden;"},
+                            ui.output_image(
+                                "spac_Scatter",
+                                width="100%",
+                                height="auto"
+                            )
                         )
                     )
                 )
             )
         )
     )
-

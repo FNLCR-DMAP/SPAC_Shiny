@@ -3,7 +3,6 @@ from shinywidgets import output_widget
 
 
 def boxplot_ui():
-    # 4. BOXPLOTS PANEL --------------------------------------
     return ui.nav_panel(
         "Boxplot",
         ui.card(
@@ -57,10 +56,15 @@ def boxplot_ui():
                     ui.input_action_button(
                         "go_bp",
                         "Render Plot",
-                        class_="btn-success"
+                        class_="btn-success",
+                        style="width: 180px;"
                     ),
                     ui.div(
-                        {"style": "padding-top: 20px;"},
+                        {"style": "padding-top: 10px;"},
+                        ui.output_ui("boxplot_stop_button_ui")
+                    ),
+                    ui.div(
+                        {"style": "padding-top: 10px;"},
                         ui.output_ui("download_button_ui1")
                     )
                 ),
@@ -68,8 +72,6 @@ def boxplot_ui():
                     9,
                     ui.div(
                         {"style": "padding-bottom: 50px;"},
-                        # Static plot conditional panel
-                        # (when interactive unchecked)
                         ui.panel_conditional(
                             "input.bp_output_type === false",
                             output_widget(
@@ -78,8 +80,6 @@ def boxplot_ui():
                                 height="600px"
                             )
                         ),
-                        # Interactive plot conditional panel
-                        # (when interactive checked)
                         ui.panel_conditional(
                             "input.bp_output_type === true",
                             output_widget(

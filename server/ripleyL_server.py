@@ -1,7 +1,14 @@
-from shiny import ui, render, reactive
-import anndata as ad
-from typing import Tuple, Any
+"""
+Ripley L visualization server module for SPAC Shiny application.
+"""
 
+from shiny import render, reactive
+import anndata as ad
+import io
+import tempfile
+import multiprocessing
+import matplotlib.pyplot as plt
+from utils.plot_manager import PlotManager
 from utils.template_wrapper import (
     register_memory_object,
     unregister_memory_object,
@@ -9,117 +16,131 @@ from utils.template_wrapper import (
 from spac.templates.visualize_ripley_template import run_from_json
 
 
+def run_ripley_worker(queue, adata, center, neighbor, plot_specific_regions,
+                      regions_labels, plot_simulations):
+    try:
+        plt.clf()
+        plt.close('all')
+
+        virtual_path = register_memory_object(adata)
+
+        params = {
+            "Upstream_Analysis": virtual_path,
+            "Center_Phenotype": center,
+            "Neighbor_Phenotype": neighbor,
+            "Plot_Specific_Regions": plot_specific_regions,
+            "Regions_Labels": regions_labels,
+            "Plot_Simulations": plot_simulations,
+        }
+
+        try:
+            figs_df = run_from_json(
+                json_path=params,
+                save_results=False,
+                show_plot=False
+            )
+        finally:
+            unregister_memory_object(virtual_path)
+
+        if figs_df is None:
+            queue.put("Error: No figure generated")
+            return
+
+        fig, df = figs_df
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=150,
+                    bbox_inches='tight', pad_inches=0.2)
+        buf.seek(0)
+        img_bytes = buf.read()
+        plt.close(fig)
+
+        queue.put((img_bytes, df))
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        queue.put(f"Error: {str(e)}")
+
+
 def ripleyL_server(input, output, session, shared):
-    """
-    Server logic for Ripley L visualization using the NIDAP-derived template.
-
-    This implementation registers the in-memory AnnData object with the
-    memory registry and delegates plotting to
-    `spac.templates.visualize_ripley_template.run_from_json`.
-
-    Parameters
-    ----------
-    input, output, session : shiny bindings
-        Standard Shiny server arguments.
-    shared : dict
-        Shared reactive values (expects 'adata_main' and 'df_ripley').
-    """
+    pm = PlotManager('rl', shared, plot_type='process', data_key='df_ripley')
 
     @reactive.calc
-    def get_adata() -> ad.AnnData:
-        """Retrieve the main AnnData from shared state."""
+    def get_adata():
         return shared['adata_main'].get()
 
-    @output
-    @render.plot
+    @reactive.Effect
     @reactive.event(input.go_rl, ignore_none=True)
-    def spac_ripley_l_plot():
-        """Render the Ripley L plot by invoking the template.
+    def start_ripley_task():
+        if pm.is_calculating.get():
+            return
 
-        Returns
-        -------
-        matplotlib.figure.Figure or None
-        """
         adata = get_adata()
         if adata is None:
-            return None
+            return
 
-        # Basic inputs: read selected pair in format 'CENTER -> NEIGHBOR'
         pair = input.rl_pair() or ""
         if not pair:
-            return None
+            return
+
         try:
             center, neighbor = [p.strip() for p in pair.split("->", 1)]
         except Exception:
-            return None
+            return
 
-        # Regions
         plot_specific_regions = bool(input.region_check_rl())
-        if plot_specific_regions:
-            regions_labels = input.rl_region_labels()
-        else:
-            regions_labels = []
-
-        # Simulations: controlled by 'show_sim_rl' checkbox in the UI
+        regions_labels = input.rl_region_labels() if plot_specific_regions else []
         plot_simulations = bool(input.show_sim_rl())
 
-        # No slide stratification: operate on the full AnnData or the
-        # region-subset above. Slide-specific stratification was removed.
+        pm.start_process(
+            run_ripley_worker,
+            args=(adata, center, neighbor, plot_specific_regions,
+                  regions_labels, plot_simulations)
+        )
 
-        # Register adata in memory registry and call run_from_json
-        try:
-            virtual_path = register_memory_object(adata)
-
-            params = {
-                "Upstream_Analysis": virtual_path,
-                "Center_Phenotype": center,
-                "Neighbor_Phenotype": neighbor,
-                "Plot_Specific_Regions": plot_specific_regions,
-                "Regions_Labels": regions_labels,
-                "Plot_Simulations": plot_simulations,
-            }
-
-            # Call template to get figure and dataframe in-memory
-            figs_df: Tuple[Any, Any] = run_from_json(
-                json_path=params, save_results=False, show_plot=False
-            )
-            if figs_df is None:
-                return None
-
-            fig, df = figs_df
-            # Store dataframe for download
+    @reactive.Effect
+    def check_status():
+        def on_result(res):
+            img_bytes, df = res
+            pm.result.set(img_bytes)
             shared['df_ripley'].set(df)
+        pm.check_process(on_result)
 
-            return fig
-
-        except Exception:
-            import traceback
-            traceback.print_exc()
+    @output
+    @render.image
+    def spac_ripley_l_plot():
+        img_bytes = pm.result.get()
+        if img_bytes is None:
             return None
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(img_bytes)
+            tmp_path = tmp.name
+        return {
+            "src": tmp_path,
+            "contentType": "image/png",
+            "style": "max-width: 100%; height: auto;"
+        }
 
-        finally:
-            try:
-                unregister_memory_object(virtual_path)
-            except Exception:
-                # ignore cleanup errors
-                pass
+    @render.ui
+    def ripley_stop_button_ui():
+        return pm.stop_button_ui('stop_rl')
 
     @render.download(filename="ripley_plot_data.csv")
     def download_df_rl():
         df = shared['df_ripley'].get()
         if df is not None:
-            csv_string = df.to_csv(index=False)
-            csv_bytes = csv_string.encode("utf-8")
-            return csv_bytes, "text/csv"
+            return df.to_csv(index=False).encode("utf-8"), "text/csv"
         return None
 
     @render.ui
-    @reactive.event(input.go_rl, ignore_none=True)
     def download_button_ui_rl():
-        if shared['df_ripley'].get() is not None:
-            return ui.download_button(
-                "download_df_rl",
-                "Download Data",
-                class_="btn-warning"
-            )
-        return None
+        return pm.download_button_ui('download_df_rl')
+
+    @render.ui
+    def download_ripley_plot_button_ui():
+        return pm.plot_download_button_ui('download_ripley_plot')
+
+    @render.download(filename="ripley_plot.png")
+    def download_ripley_plot():
+        return pm.create_plot_download_handler()()

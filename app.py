@@ -1,8 +1,7 @@
 from shiny import App, ui, reactive
 import os
 
-
-# Screen imports
+#Screen Imports
 from ui import (
     getting_started_ui,
     data_input_ui,
@@ -16,9 +15,8 @@ from ui import (
     scatterplot_ui,
     nearest_neighbor_ui,
     ripleyL_ui
-)   
-
-# Server imports
+)
+#Server Imports
 from server import (
     getting_started_server,
     data_input_server,
@@ -34,35 +32,21 @@ from server import (
     nearest_neighbor_server,
     ripleyL_server
 )
-
-# Util imports
+#Utils Imports
 from utils.data_processing import load_data, read_html_file
 from utils.accessibility import accessible_navigation, apply_slider_accessibility_global
 from utils.security import apply_security_enhancements
 
-
-# Read header and footer HTML content
 header_html = read_html_file("header.html")
 footer_html = read_html_file("footer.html")
-
-file_path = "dev_example.pickle"  # Path to your preloaded .pickle file
-preloaded_data = load_data(file_path)  # Initialize as None
-
+file_path = "dev_example.pickle"
+preloaded_data = load_data(file_path)
 
 app_ui = ui.page_fluid(
-    # Apply security enhancements
     apply_security_enhancements(),
-    
-    # Include header HTML
     ui.HTML(header_html),
-    
-    # Add navigation accessibility fixes
     accessible_navigation(),
-    
-    # Add global slider accessibility fixes
     apply_slider_accessibility_global(),
-    
-    # Main application content
     ui.navset_card_tab(
         getting_started_ui(),
         data_input_ui(),
@@ -77,26 +61,56 @@ app_ui = ui.page_fluid(
         nearest_neighbor_ui(),
         ripleyL_ui(),
     ),
-    
-    # Include footer HTML
     ui.HTML(footer_html)
 )
 
 
+def cancel_plot(plot_id, shared):
+    """
+    Global cancel function. Terminates process or clears thread state
+    for the given plot_id, then cleans up all associated reactive values.
+    """
+    registry = shared['plot_registry']
+
+    if plot_id not in registry:
+        return
+
+    entry = registry[plot_id]
+
+    # Terminate if it's a process
+    if entry['type'] == 'process':
+        p = entry['proc']
+        if p is not None and p.is_alive():
+            p.terminate()
+            p.join(timeout=1)
+            if p.is_alive():
+                p.kill()
+    if entry.get('current_proc_reactive'):
+        entry['current_proc_reactive'].set(None)
+
+    # Clear reactive state
+    entry['is_calculating'].set(False)
+    entry['result'].set(None)
+
+    # Clear associated shared data key if present
+    if entry.get('data_key') and shared.get(entry['data_key']):
+        shared[entry['data_key']].set(None)
+
+    del registry[plot_id]
+
+    ui.notification_show("Render Cancelled", type="warning")
+
+
 def server(input, output, session):
-
-    # Define a reactive variable to track if data is loaded
     data_loaded = reactive.Value(False)
-
-    # Create a reactive variable for the main data
-    adata_main = reactive.Value(preloaded_data)  # Initialize with preloaded data
+    adata_main = reactive.Value(preloaded_data)
 
     data_keys = [
         "X_data",
-        "obs_data",  # AKA Annotations
+        "obs_data",
         "obsm_data",
         "layers_data",
-        "var_data",  # AKA Features
+        "var_data",
         "uns_data",
         "shape_data",
         "obs_names",
@@ -115,44 +129,54 @@ def server(input, output, session):
     ]
 
     shared = {
-        "preloaded_data": preloaded_data,  # Preloaded data for initial load
-        "data_loaded": data_loaded,  # Reactive to track if data is loaded
-        "adata_main": adata_main,  # Main anndata object
+        "preloaded_data": preloaded_data,
+        "data_loaded": data_loaded,
+        "adata_main": adata_main,
+        "plot_registry": {},
     }
 
-    # Dynamically create the reactive values for parts of the anndata object
-    # and add them to the shared dictionary
     for key in data_keys:
         shared[key] = reactive.Value(None)
 
     # Individual server components
     getting_started_server(input, output, session, shared)
-    
     data_input_server(input, output, session, shared)
-
     effect_update_server(input, output, session, shared)
-
     annotations_server(input, output, session, shared)
-
     features_server(input, output, session, shared)
-
     boxplot_server(input, output, session, shared)
-
     feat_vs_anno_server(input, output, session, shared)
-
     anno_vs_anno_server(input, output, session, shared)
-
     spatial_server(input, output, session, shared)
-
     umap_server(input, output, session, shared)
-
     scatterplot_server(input, output, session, shared)
-
     nearest_neighbor_server(input, output, session, shared)
-
     ripleyL_server(input, output, session, shared)
 
+    # Global cancel handlers
+    STOP_BUTTON_MAP = {
+        'stop_h2':'histogram',
+        'stop_scatterplot':'scatterplot',
+        'stop_umap1':'umap1',
+        'stop_umap2':'umap2',
+        'stop_spatial':'spatial',
+        'stop_features':'features',
+        'stop_boxplot':'boxplot',
+        'stop_sankey':'sankey',
+        'stop_relational':'relational',
+        'stop_nn':'nn',
+        'stop_rl':'rl',
+        'stop_hm1':'hm1',
+    }
 
-# Create the app with static file serving for www directory
+    for stop_btn, plot_id in STOP_BUTTON_MAP.items():
+        def make_cancel_effect(btn=stop_btn, pid=plot_id):
+            @reactive.Effect
+            @reactive.event(input[btn])
+            def _cancel_effect():
+                cancel_plot(pid, shared)
+        make_cancel_effect()
+
+
 static_path = os.path.join(os.path.dirname(__file__), "www")
 app = App(app_ui, server, static_assets=static_path)

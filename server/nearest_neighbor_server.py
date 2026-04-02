@@ -1,101 +1,159 @@
 """
 Nearest neighbor visualization server module for SPAC Shiny application.
-
-This module handles the server-side logic for visualizing precomputed nearest
-neighbor distances using the visualize_nearest_neighbor_template functionality.
 """
 
-from shiny import ui, render, reactive, req
+from shiny import ui, render, reactive
+import io
+import tempfile
+import multiprocessing
+import matplotlib.pyplot as plt
+from utils.plot_manager import PlotManager
+
+
+def run_nn_worker(queue, adata, source_label, target_labels, image_id,
+                annotation, plot_method, plot_type, log_scale, facet_plot,
+                x_axis_rotation, shared_x_title, x_title_fontsize,
+                color_mapping, figure_width, figure_height, figure_dpi,
+                font_size):
+    try:
+        plt.clf()
+        plt.close('all')
+
+        from utils.template_wrapper import (
+            register_memory_object,
+            unregister_memory_object
+        )
+        from spac.templates.visualize_nearest_neighbor_template import (
+            run_from_json
+        )
+
+        virtual_path = register_memory_object(adata)
+
+        params = {
+            "Upstream_Analysis": virtual_path,
+            "Annotation": annotation,
+            "Source_Anchor_Cell_Label": source_label,
+            "Target_Cell_Label": (
+                ",".join(target_labels) if target_labels else "All"
+            ),
+            "ImageID": image_id or "None",
+            "Plot_Method": plot_method,
+            "Plot_Type": plot_type,
+            "Nearest_Neighbor_Associated_Table": "spatial_distance",
+            "Log_Scale": log_scale,
+            "Facet_Plot": facet_plot,
+            "X_Axis_Label_Rotation": x_axis_rotation,
+            "Shared_X_Axis_Title_": shared_x_title,
+            "X_Axis_Title_Font_Size": x_title_fontsize if x_title_fontsize else "None",
+            "Defined_Color_Mapping": color_mapping or "None",
+            "Figure_Width": figure_width,
+            "Figure_Height": figure_height,
+            "Figure_DPI": figure_dpi,
+            "Font_Size": font_size
+        }
+
+        try:
+            figs, df_data = run_from_json(
+                json_path=params,
+                save_results=False,
+                show_plot=False
+            )
+        finally:
+            unregister_memory_object(virtual_path)
+
+        fig = figs[0] if isinstance(figs, list) and len(figs) > 0 else figs
+        if fig is None:
+            queue.put("Error: No figure generated")
+            return
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format='png', dpi=figure_dpi,
+                    bbox_inches='tight', pad_inches=0.2)
+        buf.seek(0)
+        img_bytes = buf.read()
+        plt.close(fig)
+
+        queue.put((img_bytes, df_data))
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        queue.put(f"Error: {str(e)}")
 
 
 def nearest_neighbor_server(input, output, session, shared):
-    """
-    Server logic for nearest neighbor visualization feature.
-
-    Parameters
-    ----------
-    input : shiny.session.Inputs
-        Shiny input object
-    output : shiny.session.Outputs
-        Shiny output object
-    session : shiny.session.Session
-        Shiny session object
-    shared : dict
-        Shared reactive values across server modules
-    """
+    pm = PlotManager('nn', shared, plot_type='process', data_key='df_nn')
 
     @reactive.calc
     def get_adata():
-        """Get the main AnnData object from shared state."""
         return shared['adata_main'].get()
 
     @reactive.calc
     def process_target_labels():
-        """
-        Process target label selection.
-
-        Returns
-        -------
-        list or None
-            List of target phenotypes or None for 'All'
-        """
         target_labels = input.nn_target_label()
-        if target_labels and len(target_labels) > 0:
-            return target_labels
-        return None
+        return list(target_labels) if target_labels and len(target_labels) > 0 else None
 
     @reactive.calc
     def get_plot_type():
-        """Get the appropriate plot type based on method selection."""
         method = input.nn_plot_method()
-        if method == "numeric":
-            return input.nn_plot_type_numeric()
-        else:
-            return input.nn_plot_type_distribution()
+        return input.nn_plot_type_numeric() if method == "numeric" else input.nn_plot_type_distribution()
 
     @reactive.calc
     def get_image_id():
-        """Process ImageID selection."""
         image_id = input.nn_image_id()
         return None if image_id == "None" else image_id
 
     @reactive.calc
     def get_color_mapping():
-        """Process color mapping selection."""
         try:
             color_mapping = input.nn_color_mapping()
             return None if color_mapping == "None" else color_mapping
         except Exception:
-            # Return None if input not available yet (dynamic UI not rendered)
             return None
 
     @reactive.calc
-    def get_font_size():
-        """Process font size, returning None if using default."""
-        font_size = input.nn_x_title_fontsize()
-        return font_size if font_size != 12 else None
+    def detect_annotation():
+        """Auto-detect annotation column matching spatial_distance phenotypes."""
+        adata = get_adata()
+        if adata is None:
+            return None
+
+        spatial_distance_key = "spatial_distance"
+        distance_df = None
+        if spatial_distance_key in adata.obsm:
+            distance_df = adata.obsm[spatial_distance_key]
+        elif spatial_distance_key in adata.uns:
+            distance_df = adata.uns[spatial_distance_key]
+
+        if distance_df is not None and hasattr(distance_df, 'columns'):
+            spatial_phenotypes = set(distance_df.columns)
+            for col in adata.obs.columns:
+                is_categorical = (adata.obs[col].dtype == 'object' or
+                                adata.obs[col].dtype.name == 'category')
+                if is_categorical:
+                    obs_phenotypes = set(adata.obs[col].unique())
+                    overlap = spatial_phenotypes.intersection(obs_phenotypes)
+                    if len(overlap) >= len(spatial_phenotypes) * 0.8:
+                        return col
+
+            # Fallback: first categorical column
+            for col in adata.obs.columns:
+                if (adata.obs[col].dtype == 'object' or
+                        adata.obs[col].dtype.name == 'category'):
+                    return col
+
+        return None
 
     @output
     @render.ui
     def nn_color_mapping_ui():
-        """
-        Create dynamic color mapping select input from available data.
-
-        Returns
-        -------
-        shiny.ui element
-            Select input with available color mappings or None option
-        """
         adata = get_adata()
         choices = {"None": "None (Auto)"}
-        
         if adata is not None:
-            # Extract available color mappings from uns
             if hasattr(adata, 'uns') and adata.uns is not None:
                 for key in adata.uns.keys():
                     if key.endswith('_color_map') or 'color' in key.lower():
                         choices[key] = key
-        
         return ui.input_select(
             "nn_color_mapping",
             ui.tags.span(
@@ -115,175 +173,90 @@ def nearest_neighbor_server(input, output, session, shared):
             selected="None"
         )
 
-    @output
-    @render.plot
+    @reactive.Effect
     @reactive.event(input.go_nn_viz, ignore_none=True)
-    def nn_visualization_plot():
-        """
-        Generate the nearest neighbor visualization plot.
+    def start_nn_task():
+        if pm.is_calculating.get():
+            return
 
-        Returns
-        -------
-        matplotlib.figure.Figure
-            The generated plot figure
-        """
-        # Get the AnnData object
         adata = get_adata()
         if adata is None:
-            return None
+            return
 
-        # Prepare parameters for visualization
         source_label = input.nn_source_label()
+        if not source_label:
+            return
+
+        annotation = detect_annotation()
+        if not annotation:
+            return
+
         target_labels = process_target_labels()
         image_id = get_image_id()
+        plot_method = input.nn_plot_method()
+        plot_type = get_plot_type()
+        log_scale = input.nn_log_scale()
+        facet_plot = input.nn_facet_plot()
+        x_axis_rotation = input.nn_x_axis_rotation()
+        shared_x_title = input.nn_shared_x_title()
+        x_title_fontsize = input.nn_x_title_fontsize()
+        color_mapping = get_color_mapping()
+        figure_width = input.nn_figure_width()
+        figure_height = input.nn_figure_height()
+        figure_dpi = input.nn_figure_dpi()
+        font_size = input.nn_font_size()
 
-        # Validate inputs
-        if not source_label:
-            return None
+        pm.start_process(
+            run_nn_worker,
+            args=(adata, source_label, target_labels, image_id,
+                annotation, plot_method, plot_type, log_scale, facet_plot,
+                x_axis_rotation, shared_x_title, x_title_fontsize,
+                color_mapping, figure_width, figure_height, figure_dpi,
+                font_size)
+        )
 
-        # Auto-detect annotation column matching spatial_distance phenotypes
-        annotation = None
-        spatial_distance_key = "spatial_distance"  # Use hardcoded default
-        
-        # Check if spatial distance data is in obsm or uns
-        distance_df = None
-        if spatial_distance_key in adata.obsm:
-            distance_df = adata.obsm[spatial_distance_key]
-        elif spatial_distance_key in adata.uns:
-            distance_df = adata.uns[spatial_distance_key]
-        
-        if distance_df is not None and hasattr(distance_df, 'columns'):
-            spatial_phenotypes = set(distance_df.columns)
-            
-            # Find annotation column that contains matching phenotypes
-            for col in adata.obs.columns:
-                is_categorical = (adata.obs[col].dtype == 'object' or
-                                  adata.obs[col].dtype.name == 'category')
-                if is_categorical:
-                    obs_phenotypes = set(adata.obs[col].unique())
-                    # Check if there's significant overlap (80%+)
-                    overlap = spatial_phenotypes.intersection(
-                        obs_phenotypes)
-                    if len(overlap) >= len(spatial_phenotypes) * 0.8:
-                        annotation = col
-                        break
-            
-            if annotation is None:
-                # Fallback: use the first categorical column
-                for col in adata.obs.columns:
-                    is_obj = adata.obs[col].dtype == 'object'
-                    is_cat = adata.obs[col].dtype.name == 'category'
-                    if is_obj or is_cat:
-                        annotation = col
-                        break
-
-        if not annotation:
-            return None
-
-        try:
-            # Use memory registry to create virtual path for adata object
-            from utils.template_wrapper import (
-                register_memory_object,
-                unregister_memory_object
-            )
-            from spac.templates.visualize_nearest_neighbor_template import (
-                run_from_json
-            )
-
-            # Register the adata object and get virtual path
-            virtual_path = register_memory_object(adata)
-
-            # Create parameter dictionary for run_from_json
-            params = {
-                "Upstream_Analysis": virtual_path,  # Use virtual path!
-                "Annotation": annotation,
-                "Source_Anchor_Cell_Label": source_label,
-                "Target_Cell_Label": (",".join(target_labels)
-                                      if target_labels else "All"),
-                "ImageID": image_id or "None",
-                "Plot_Method": input.nn_plot_method(),
-                "Plot_Type": get_plot_type(),
-                "Nearest_Neighbor_Associated_Table": "spatial_distance",
-                "Log_Scale": input.nn_log_scale(),
-                "Facet_Plot": input.nn_facet_plot(),
-                "X_Axis_Label_Rotation": input.nn_x_axis_rotation(),
-                "Shared_X_Axis_Title_": input.nn_shared_x_title(),
-                "X_Axis_Title_Font_Size": (input.nn_x_title_fontsize()
-                                           if input.nn_x_title_fontsize()
-                                           else "None"),
-                "Defined_Color_Mapping": get_color_mapping() or "None",
-                "Figure_Width": input.nn_figure_width(),
-                "Figure_Height": input.nn_figure_height(),
-                "Figure_DPI": input.nn_figure_dpi(),
-                "Font_Size": input.nn_font_size()
-            }
-
-            try:
-                # Call run_from_json with virtual path
-                figs, df_data = run_from_json(
-                    json_path=params,
-                    save_results=False,  # Return figures directly
-                    show_plot=False
-                )
-            finally:
-                # Clean up the memory registry
-                unregister_memory_object(virtual_path)
-
-            # Store the data for download
+    @reactive.Effect
+    def check_status():
+        def on_result(res):
+            img_bytes, df_data = res
+            pm.result.set(img_bytes)
             shared['df_nn'].set(df_data)
+        pm.check_process(on_result)
 
-            # Handle both single figure and list of figures
-            if isinstance(figs, list):
-                if len(figs) > 0:
-                    fig = figs[0]
-                else:
-                    return None
-            else:
-                fig = figs
-
-            if fig is None:
-                return None
-
-            return fig
-
-        except Exception:
-            # Log the error (in a production app, use proper logging)
-            import traceback
-            traceback.print_exc()
+    @output
+    @render.image
+    def nn_visualization_plot():
+        img_bytes = pm.result.get()
+        if img_bytes is None:
             return None
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(img_bytes)
+            tmp_path = tmp.name
+        return {
+            "src": tmp_path,
+            "contentType": "image/png",
+            "style": "max-width: 100%; height: auto;"
+        }
+
+    @render.ui
+    def nn_stop_button_ui():
+        return pm.stop_button_ui('stop_nn')
 
     @render.download(filename="nearest_neighbor_data.csv")
     def download_df_nn():
-        """
-        Download the nearest neighbor data as CSV.
-
-        Returns
-        -------
-        tuple
-            CSV bytes and content type
-        """
         df = shared['df_nn'].get()
         if df is not None:
-            csv_string = df.to_csv(index=False)
-            csv_bytes = csv_string.encode("utf-8")
-            return csv_bytes, "text/csv"
+            return df.to_csv(index=False).encode("utf-8"), "text/csv"
         return None
 
     @render.ui
-    @reactive.event(input.go_nn_viz, ignore_none=True)
     def download_button_ui_nn():
-        """
-        Show download button when data is available.
+        return pm.download_button_ui('download_df_nn')
 
-        Returns
-        -------
-        shiny.ui element or None
-            Download button UI or None if no data
-        """
-        if shared['df_nn'].get() is not None:
-            return ui.download_button(
-                "download_df_nn",
-                "Download Data",
-                class_="btn-warning"
-            )
-        return None
+    @render.ui
+    def download_nn_plot_button_ui():
+        return pm.plot_download_button_ui('download_nn_plot')
+
+    @render.download(filename="nearest_neighbor_plot.png")
+    def download_nn_plot():
+        return pm.create_plot_download_handler()()

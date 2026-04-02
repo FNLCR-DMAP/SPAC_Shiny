@@ -1,15 +1,16 @@
-from shiny import ui, render, reactive
+from shiny import render, reactive
 from shinywidgets import render_widget
 import anndata as ad
 import pandas as pd
 import spac.visualization
+from utils.plot_manager import PlotManager
 
 
 def boxplot_server(input, output, session, shared):
-   # Helper functions for reusability
+    pm = PlotManager('boxplot', shared, plot_type='thread', data_key='df_boxplot')
+
     def on_outlier_check():
-        selected_choice = input.bp_outlier_check()
-        return None if selected_choice == "none" else selected_choice
+        return None if input.bp_outlier_check() == "none" else input.bp_outlier_check()
 
     def on_orient_check():
         return "h" if input.bp_orient() else "v"
@@ -20,114 +21,85 @@ def boxplot_server(input, output, session, shared):
     def on_anno_check():
         return input.bp_anno() if input.bp_anno() != "No Annotation" else None
 
-
-    @output
-    @render_widget
+    @reactive.Effect
     @reactive.event(input.go_bp, ignore_none=True)
-    def spac_Boxplot():
-        """
-        This function produces an interactive (Plotly) boxplot figure.
-        """
-        # Only run this function if both conditions are met
+    def start_boxplot_task():
+        if pm.is_calculating.get():
+            return
 
-        if not input.bp_output_type():
-            return None
-        else: 
+        adata = ad.AnnData(
+            X=shared['X_data'].get(),
+            obs=pd.DataFrame(shared['obs_data'].get()),
+            var=pd.DataFrame(shared['var_data'].get()),
+            layers=shared['layers_data'].get(),
+            dtype=shared['X_data'].get().dtype
+        )
+        output_type = input.bp_output_type()
+        annotation = on_anno_check()
+        layer = on_layer_check()
+        features = list(input.bp_features())
+        showfliers = on_outlier_check()
+        log_scale = input.bp_log_scale()
+        orient = on_orient_check()
 
-            adata = ad.AnnData(
-                X=shared['X_data'].get(), 
-                obs=pd.DataFrame(shared['obs_data'].get()), 
-                var=pd.DataFrame(shared['var_data'].get()), 
-                layers=shared['layers_data'].get(), 
-                dtype=shared['X_data'].get().dtype
-            )
-
-            # Proceed only if adata is valid
-            if adata is not None and adata.var is not None:
-
+        def worker():
+            try:
+                if adata is None or adata.var is None:
+                    pm.result_queue.put("Error: Invalid data")
+                    return
                 fig, df = spac.visualization.boxplot_interactive(
-                    adata, 
-                    annotation=on_anno_check(), 
-                    layer=on_layer_check(), 
-                    features=list(input.bp_features()),
-                    showfliers=on_outlier_check(),
-                    log_scale=input.bp_log_scale(),
-                    orient=on_orient_check(),
-                    figure_height=3, 
-                    figure_width=4.8, 
-                    figure_type="interactive"
+                    adata,
+                    annotation=annotation,
+                    layer=layer,
+                    features=features,
+                    showfliers=showfliers,
+                    log_scale=log_scale,
+                    orient=orient,
+                    figure_height=3,
+                    figure_width=4.8,
+                    figure_type="interactive" if output_type else "static"
                 ).values()
+                pm.result_queue.put((fig, df, output_type))
+            except Exception as e:
+                pm.result_queue.put(f"Error: {str(e)}")
 
-                # Return the interactive Plotly figure object
-                shared['df_boxplot'].set(df)
-                print(type(fig))
-                return fig
+        pm.start_thread(worker)
 
-        return None
+    @reactive.Effect
+    def check_status():
+        def on_result(res):
+            fig, df, output_type = res
+            pm.result.set((fig, output_type))
+            shared['df_boxplot'].set(df)
+        pm.check_thread(on_result)
 
+    @render_widget
+    def spac_Boxplot():
+        result = pm.result.get()
+        if result is None:
+            return None
+        fig, output_type = result
+        return fig if output_type else None
+
+    @render_widget
+    def boxplot_static():
+        result = pm.result.get()
+        if result is None:
+            return None
+        fig, output_type = result
+        return fig if not output_type else None
+
+    @render.ui
+    def boxplot_stop_button_ui():
+        return pm.stop_button_ui('stop_boxplot')
 
     @render.download(filename="boxplot_data.csv")
     def download_boxplot():
         df = shared['df_boxplot'].get()
         if df is not None:
-            csv_string = df.to_csv(index=False)
-            csv_bytes = csv_string.encode("utf-8")
-            return csv_bytes, "text/csv"
+            return df.to_csv(index=False).encode("utf-8"), "text/csv"
         return None
-
 
     @render.ui
-    @reactive.event(input.go_bp, ignore_none=True)
     def download_button_ui1():
-        if shared['df_boxplot'].get() is not None:
-            return ui.download_button(
-                "download_boxplot", 
-                "Download Data", 
-                class_="btn-warning"
-            )
-        return None
-
-
-    @output
-    @render_widget
-    @reactive.event(input.go_bp, ignore_none=True)
-    def boxplot_static():
-        """
-        This function produces a static (Plotly) boxplot image.
-        """
-
-         # Only run this function if both conditions are met
-
-        if input.bp_output_type():
-            return None
-
-        else: 
-
-            adata = ad.AnnData(
-                X=shared['X_data'].get(), 
-                obs=pd.DataFrame(shared['obs_data'].get()), 
-                var=pd.DataFrame(shared['var_data'].get()), 
-                layers=shared['layers_data'].get(), 
-                dtype=shared['X_data'].get().dtype
-            )
-
-            # Proceed only if adata is valid
-            if adata is not None and adata.var is not None:
-                
-                fig, df = spac.visualization.boxplot_interactive(
-                    adata, 
-                    annotation=on_anno_check(), 
-                    layer=on_layer_check(), 
-                    features=list(input.bp_features()),
-                    showfliers=on_outlier_check(),
-                    log_scale=input.bp_log_scale(),
-                    orient=on_orient_check(),
-                    figure_height=3, 
-                    figure_width=4.8, 
-                    figure_type="static"
-                ).values()
-
-                return fig
-
-        return None
-
+        return pm.download_button_ui('download_boxplot')

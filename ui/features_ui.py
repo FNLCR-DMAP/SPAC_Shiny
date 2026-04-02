@@ -3,7 +3,6 @@ from utils.accessibility import accessible_slider
 
 
 def features_ui():
-    # 3. FEATURES PANEL (Histogram) --------------------------
     return ui.nav_panel(
         "Features",
         ui.card(
@@ -53,21 +52,30 @@ def features_ui():
                         ui.input_action_button(
                             "go_h1",
                             "Render Plot",
-                            class_="btn-success"
+                            class_="btn-success",
+                            style="width: 180px;"
                         ),
                         ui.div(
-                            {"style": "padding-top: 20px;"},
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("features_stop_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
                             ui.output_ui("download_histogram1_button_ui")
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 10px;"},
+                            ui.output_ui("download_features_plot_button_ui")
                         ),
                     ),
                     ui.column(
                         10,
                         ui.div(
-                            {"style": "padding-bottom: 100px;"},
-                            ui.output_plot(
+                            {"style": "padding-bottom: 100px; overflow: hidden;"},
+                            ui.output_image(
                                 "spac_Histogram_1",
                                 width="100%",
-                                height="60vh"
+                                height="auto"
                             )
                         )
                     )

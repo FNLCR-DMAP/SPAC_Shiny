@@ -10,13 +10,83 @@ from shiny import ui, render, reactive, req
 import anndata as ad
 import numpy as np
 import pandas as pd
+import io
+import tempfile
+import multiprocessing
+import matplotlib.pyplot as plt
 import logging
 import spac.visualization
+from utils.plot_manager import PlotManager
 from utils.plot_utils import abbreviate_labels, apply_axis_style
 
 
-# Set up logger
 logger = logging.getLogger(__name__)
+
+
+def run_heatmap_worker(queue, adata, annotation, layer, cluster_annotations,
+                       cluster_features, vmin, vmax, cmap,
+                       x_rotation, y_rotation,
+                       enable_abbrev, char_limit, axis_fontsize):
+    try:
+        plt.clf()
+        plt.close('all')
+
+        df, fig, ax = spac.visualization.hierarchical_heatmap(
+            adata,
+            annotation=annotation,
+            layer=layer,
+            z_score=None,
+            cluster_annotations=cluster_annotations,
+            cluster_feature=cluster_features,
+            vmin=vmin,
+            vmax=vmax,
+        )
+
+        if fig is None or not hasattr(fig, "ax_heatmap"):
+            queue.put("Error: Invalid figure structure")
+            return
+
+        if cmap != "viridis":
+            fig.ax_heatmap.collections[0].set_cmap(cmap)
+
+        fig.ax_heatmap.set_xticklabels(
+            fig.ax_heatmap.get_xticklabels(),
+            rotation=x_rotation,
+            horizontalalignment='right'
+        )
+        fig.ax_heatmap.set_yticklabels(
+            fig.ax_heatmap.get_yticklabels(),
+            rotation=y_rotation,
+            verticalalignment='center'
+        )
+
+        if enable_abbrev and char_limit:
+            abbreviated_xticks = abbreviate_labels(
+                fig.ax_heatmap.get_xticklabels(), char_limit)
+            fig.ax_heatmap.set_xticklabels(
+                abbreviated_xticks, rotation=x_rotation)
+            abbreviated_yticks = abbreviate_labels(
+                fig.ax_heatmap.get_yticklabels(), char_limit)
+            fig.ax_heatmap.set_yticklabels(
+                abbreviated_yticks, rotation=y_rotation)
+
+        apply_axis_style(fig.ax_heatmap.get_xticklabels(), axis_fontsize)
+        apply_axis_style(fig.ax_heatmap.get_yticklabels(), axis_fontsize)
+
+        LAYOUT_RECT = (0.02, 0.02, 0.98, 0.98)
+        fig.fig.tight_layout(rect=LAYOUT_RECT)
+        fig.fig.subplots_adjust(bottom=0.15, left=0)
+
+        buf = io.BytesIO()
+        fig.fig.savefig(buf, format='png', dpi=140,
+                        bbox_inches='tight', pad_inches=0.2)
+        buf.seek(0)
+        img_bytes = buf.read()
+        plt.close(fig.fig)
+
+        queue.put((img_bytes, df))
+    except Exception as e:
+        queue.put(f"Error: {str(e)}")
 
 
 def feat_vs_anno_server(input, output, session, shared):
@@ -34,28 +104,12 @@ def feat_vs_anno_server(input, output, session, shared):
     shared : dict
         Shared reactive values across server modules
     """
+    pm = PlotManager('hm1', shared, plot_type='process', data_key='df_heatmap')
 
     def on_layer_check():
-        """
-        Get the selected layer name or None for original data.
-
-        Returns
-        -------
-        str or None
-            Layer name if not "Original", otherwise None
-        """
         return input.hm1_layer() if input.hm1_layer() != "Original" else None
 
     def on_dendro_check():
-        """
-        Check if dendrogram is enabled and return the appropriate values.
-
-        Returns
-        -------
-        tuple of (bool, bool) or (None, None)
-            Annotation dendrogram and feature dendrogram flags.
-            Returns (None, None) if dendrogram is disabled.
-        """
         return (
             (input.hm1_anno_dendro(), input.hm1_feat_dendro())
             if input.hm1_dendogram()
@@ -64,21 +118,9 @@ def feat_vs_anno_server(input, output, session, shared):
 
     @reactive.calc
     def get_adata():
-        """
-        Get the main AnnData object from shared state.
-
-        Returns
-        -------
-        anndata.AnnData or None
-            AnnData object reconstructed from shared data components
-            Returns None if data is not loaded
-        """
         x_data = shared['X_data'].get()
-
-        # STOP THE CRASH: If data isn't loaded, don't access .dtype
         if x_data is None:
             return None
-
         return ad.AnnData(
             X=x_data,
             obs=pd.DataFrame(shared['obs_data'].get()),
@@ -87,120 +129,86 @@ def feat_vs_anno_server(input, output, session, shared):
             dtype=x_data.dtype
         )
 
-    @output
-    @render.plot(alt="Heatmap Plot")
+    @reactive.Effect
     @reactive.event(input.go_hm1, ignore_none=True)
-    def spac_Heatmap():
-        """
-        Render heatmap of features vs annotations.
+    def start_heatmap_task():
+        if pm.is_calculating.get():
+            return
 
-        This function generates a clustered heatmap showing the relationship
-        between selected features (columns) and cell annotations (rows).
-
-        Returns
-        -------
-        matplotlib.figure.Figure or None
-            Heatmap figure with optional dendrograms, or None if
-            generation fails
-        """
-        # Validation: Ensure required inputs are present
         req(input.hm1_anno())
         req(input.hm1_layer())
 
         adata = get_adata()
         if adata is None:
-            return None
+            return
 
-        vmin = input.hm1_min_select()
-        vmax = input.hm1_max_select()
-        kwargs = {"vmin": vmin, "vmax": vmax}
         cluster_annotations, cluster_features = on_dendro_check()
+        enable_abbrev = input.hm1_enable_abbreviation()
 
-        # Error Handling: Catch and log specific errors
-        try:
-            df, fig, ax = spac.visualization.hierarchical_heatmap(
+        pm.start_process(
+            run_heatmap_worker,
+            args=(
                 adata,
-                annotation=input.hm1_anno(),
-                layer=on_layer_check(),
-                z_score=None,
-                cluster_annotations=cluster_annotations,
-                cluster_feature=cluster_features,
-                **kwargs
+                input.hm1_anno(),
+                on_layer_check(),
+                cluster_annotations,
+                cluster_features,
+                input.hm1_min_select(),
+                input.hm1_max_select(),
+                input.hm1_cmap(),
+                input.hm1_x_label_rotation(),
+                input.hm1_y_label_rotation(),
+                enable_abbrev,
+                input.hm1_label_char_limit() if enable_abbrev else None,
+                input.hm1_axis_label_fontsize(),
             )
-        except ValueError as e:
-            error_msg = ("Heatmap generation failed with invalid "
-                        f"parameters: {e}")
-            logger.error(error_msg)
-            return None
-        except Exception as e:
-            error_msg = ("Unexpected error during heatmap "
-                        f"generation: {e}")
-            logger.error(error_msg)
-            return None
-
-        if fig is None or not hasattr(fig, "ax_heatmap"):
-            logger.error("Invalid figure structure.")
-            return None
-
-        # Apply colormap
-        cmap = input.hm1_cmap()
-        if cmap != "viridis":
-            fig.ax_heatmap.collections[0].set_cmap(cmap)
-
-        shared['df_heatmap'].set(df)
-
-        # Rotate X and Y axis labels
-        fig.ax_heatmap.set_xticklabels(
-            fig.ax_heatmap.get_xticklabels(),
-            rotation=input.hm1_x_label_rotation(),
-            horizontalalignment='right'
-        )
-        fig.ax_heatmap.set_yticklabels(
-            fig.ax_heatmap.get_yticklabels(),
-            rotation=input.hm1_y_label_rotation(),
-            verticalalignment='center'
         )
 
-        # Abbreviate labels if enabled
-        if input.hm1_enable_abbreviation():
-            limit = input.hm1_label_char_limit()
-            abbreviated_xticks = abbreviate_labels(
-                fig.ax_heatmap.get_xticklabels(), limit)
-            fig.ax_heatmap.set_xticklabels(
-                abbreviated_xticks, rotation=input.hm1_x_label_rotation())
-            abbreviated_yticks = abbreviate_labels(
-                fig.ax_heatmap.get_yticklabels(), limit)
-            fig.ax_heatmap.set_yticklabels(
-                abbreviated_yticks, rotation=input.hm1_y_label_rotation())
+    @reactive.Effect
+    def check_status():
+        def on_result(res):
+            img_bytes, df = res
+            pm.result.set(img_bytes)
+            shared['df_heatmap'].set(df)
+        pm.check_process(on_result)
 
-        # Set font size for axis labels
-        axis_fontsize = input.hm1_axis_label_fontsize()
-        apply_axis_style(fig.ax_heatmap.get_xticklabels(), axis_fontsize)
-        apply_axis_style(fig.ax_heatmap.get_yticklabels(), axis_fontsize)
+    @output
+    @render.image
+    def spac_Heatmap():
+        img_bytes = pm.result.get()
+        if img_bytes is None:
+            return None
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            tmp.write(img_bytes)
+            tmp_path = tmp.name
+        return {
+            "src": tmp_path,
+            "contentType": "image/png",
+            "style": "max-width: 100%; height: auto;"
+        }
 
-        # Adjust figure layout with small margins to prevent label clipping
-        # rect format: [left, bottom, right, top] as fraction of figure size
-        LAYOUT_RECT = (0.02, 0.02, 0.98, 0.98)
-        fig.fig.tight_layout(rect=LAYOUT_RECT)
-        fig.fig.subplots_adjust(bottom=0.15, left=0)
-        return fig
+    @render.ui
+    def heatmap_stop_button_ui():
+        return pm.stop_button_ui('stop_hm1')
+
+    @render.ui
+    def download_button_ui_hm1():
+        return pm.download_button_ui('download_df_hm1')
 
     @render.download(filename="heatmap_data.csv")
     def download_df_hm1():
         df = shared['df_heatmap'].get()
         if df is not None:
-            csv_string = df.to_csv(index=False)
-            csv_bytes = csv_string.encode("utf-8")
-            return csv_bytes, "text/csv"
+            return df.to_csv(index=False).encode("utf-8"), "text/csv"
         return None
 
     @render.ui
-    @reactive.event(input.go_hm1, ignore_none=True)
-    def download_button_ui_hm1():
-        if shared['df_heatmap'].get() is not None:
-            return ui.download_button(
-                "download_df_hm1", "Download Data", class_="btn-warning")
-        return None
+    def download_heatmap_plot_button_ui():
+        return pm.plot_download_button_ui('download_heatmap_plot')
+
+    @render.download(filename="heatmap_plot.png")
+    def download_heatmap_plot():
+        return pm.create_plot_download_handler()()
 
     @reactive.effect
     @reactive.event(input.hm1_layer)
@@ -213,56 +221,47 @@ def feat_vs_anno_server(input, output, session, shared):
             return None
 
         try:
-            # Determine layer data source
             if input.hm1_layer() == "Original":
                 layer_data = adata.X
             else:
-                # Check if layer exists in AnnData
                 if input.hm1_layer() not in adata.layers:
                     return None
                 layer_data = adata.layers[input.hm1_layer()]
 
-            # Check if annotation exists in obs
             if input.hm1_anno() not in adata.obs:
                 return None
 
-            # Filter layer data based on valid annotations
             mask = adata.obs[input.hm1_anno()].notna()
             layer_data = layer_data[mask]
 
-            # Avoid calculation on empty data
             if layer_data.size == 0:
                 return None
 
             min_val = round(float(np.min(layer_data)), 2)
             max_val = round(float(np.max(layer_data)), 2)
 
-            # UI Update
             ui.remove_ui("#inserted-hm1_min_num")
             ui.remove_ui("#inserted-hm1_max_num")
 
-            min_num = ui.input_numeric(
-                "hm1_min_select",
-                "Minimum",
-                min_val,
-                min=min_val,
-                max=max_val
-            )
             ui.insert_ui(
-                ui.div({"id": "inserted-hm1_min_num"}, min_num),
+                ui.div(
+                    {"id": "inserted-hm1_min_num"},
+                    ui.input_numeric(
+                        "hm1_min_select", "Minimum",
+                        min_val, min=min_val, max=max_val
+                    )
+                ),
                 selector="#main-hm1_min_num",
                 where="beforeEnd",
             )
-
-            max_num = ui.input_numeric(
-                "hm1_max_select",
-                "Maximum",
-                max_val,
-                min=min_val,
-                max=max_val
-            )
             ui.insert_ui(
-                ui.div({"id": "inserted-hm1_max_num"}, max_num),
+                ui.div(
+                    {"id": "inserted-hm1_max_num"},
+                    ui.input_numeric(
+                        "hm1_max_select", "Maximum",
+                        max_val, min=min_val, max=max_val
+                    )
+                ),
                 selector="#main-hm1_max_num",
                 where="beforeEnd",
             )
