@@ -43,9 +43,7 @@ from utils.accessibility import accessible_navigation, apply_slider_accessibilit
 from utils.security import apply_security_enhancements
 
 
-# ---------------------------------------------------------------------------
-# Configuration — all tuneable via environment variables
-# ---------------------------------------------------------------------------
+
 
 # Path to the preloaded AnnData pickle/h5ad file.
 # Override with: DATA_PATH=/path/to/your/file.pickle
@@ -67,9 +65,7 @@ RAG_N_RESULTS = int(os.getenv("RAG_N_RESULTS", "3"))
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "120"))
 
 
-# ---------------------------------------------------------------------------
-# Load optional HTML assets (header/footer) with graceful fallbacks
-# ---------------------------------------------------------------------------
+
 
 def safe_read_html(filename: str, fallback: str = "") -> str:
     """Read an HTML file if it exists, otherwise return a fallback string."""
@@ -83,9 +79,7 @@ header_html = safe_read_html("header.html")
 footer_html = safe_read_html("footer.html")
 
 
-# ---------------------------------------------------------------------------
-# Preload dataset (optional — app still starts if no file is found)
-# ---------------------------------------------------------------------------
+
 
 def safe_load_data(path: str):
     """Load dataset if the file exists, otherwise return None with a warning."""
@@ -105,9 +99,7 @@ def safe_load_data(path: str):
 preloaded_data = safe_load_data(DATA_PATH)
 
 
-# ---------------------------------------------------------------------------
-# App context builder
-# ---------------------------------------------------------------------------
+
 
 def get_app_context(input, shared) -> str:
     context_parts = []
@@ -167,9 +159,7 @@ def get_app_context(input, shared) -> str:
     return " ".join(context_parts) if context_parts else "No dataset currently loaded."
 
 
-# ---------------------------------------------------------------------------
-# UI
-# ---------------------------------------------------------------------------
+
 
 app_ui = ui.page_fluid(
     apply_security_enhancements(),
@@ -348,9 +338,7 @@ app_ui = ui.page_fluid(
 )
 
 
-# ---------------------------------------------------------------------------
-# Server
-# ---------------------------------------------------------------------------
+
 
 def server(input, output, session):
     chat_history = reactive.Value([
