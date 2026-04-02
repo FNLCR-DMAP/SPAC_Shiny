@@ -1,6 +1,8 @@
 from shiny import ui, render, reactive
 import numpy as np
 import spac.visualization
+from utils.plot_utils import fig_to_png_bytes, png_bytes_to_figure
+
 
 def annotations_server(input, output, session, shared):
     @output
@@ -11,49 +13,70 @@ def annotations_server(input, output, session, shared):
         if adata is None:
             return None
 
-        # 1) If "Group By" is UNCHECKED, show a simple annotation histogram
-        if not input.h2_group_by_check():
-            fig, ax, df = spac.visualization.histogram(
-                adata,
-                annotation=input.h2_anno()
-            ).values()
-            shared['df_histogram2'].set(df) 
-            ax.tick_params(axis='x', rotation=input.anno_slider(), labelsize=10)
-            return fig
+        cache = shared['cache']
+        version = shared['dataset_version'].get()
 
-        # 2) If "Group By" is CHECKED, we must always supply a 
-        #    valid multiple parameter
-        else:
-            # If user also checked "Plot Together", use their selected 
-            # stack type
-            if input.h2_together_check():
-                # e.g. 'stack', 'dodge', etc.
-                multiple_param = input.h2_together_drop()  
+        is_grouped = input.h2_group_by_check()
 
-                together_flag = True
-            else:
-                # If grouping by but not "plot together", pick a default layout
-                # or 'dodge' or any valid string
-                multiple_param = "layer"  
-                together_flag = False
+        # Safely read dynamic inputs that may not exist yet
+        try:
+            group_by = input.h2_anno_1() if is_grouped else None
+        except Exception:
+            group_by = None
 
-            fig, ax, df = spac.visualization.histogram(
-                adata,
-                annotation=input.h2_anno(),
-                group_by=input.h2_anno_1(),
-                together=together_flag,
-                multiple=multiple_param
-            ).values()
-            shared['df_histogram2'].set(df) 
+        try:
+            together = input.h2_together_check() if is_grouped else False
+        except Exception:
+            together = False
+
+        try:
+            multiple = (
+                input.h2_together_drop()
+                if (is_grouped and together)
+                else "layer"
+            )
+        except Exception:
+            multiple = "layer"
+
+        rotation = input.anno_slider()
+
+        params = {
+            'annotation': input.h2_anno(),
+            'is_grouped': is_grouped,
+            'group_by': group_by,
+            'together': together,
+            'multiple': multiple,
+            'rotation': rotation,
+        }
+
+        def compute():
+            kwargs = {'adata': adata, 'annotation': params['annotation']}
+            if params['is_grouped']:
+                kwargs['group_by'] = params['group_by']
+                kwargs['together'] = params['together']
+                if params['together']:
+                    kwargs['multiple'] = params['multiple']
+                else:
+                    kwargs['multiple'] = "layer"
+
+            fig, ax, df = spac.visualization.histogram(**kwargs).values()
+
             axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
-            for ax in axes:
-                ax.tick_params(
-                    axis='x', 
-                    rotation=input.anno_slider(), 
+            for a in axes:
+                a.tick_params(
+                    axis='x',
+                    rotation=params['rotation'],
                     labelsize=10
                 )
-            return fig
-        return None
+            return fig_to_png_bytes(fig), df
+
+        img_bytes, df = cache.get_or_compute('histogram2', version, params, compute)
+
+        if img_bytes is None:
+            return None
+
+        shared['df_histogram2'].set(df)
+        return png_bytes_to_figure(img_bytes)
 
 
     @render.ui
@@ -61,8 +84,8 @@ def annotations_server(input, output, session, shared):
     def download_histogram_button_ui():
         if shared['df_histogram2'].get() is not None:
             return ui.download_button(
-                "download_histogram2_df", 
-                "Download Data", 
+                "download_histogram2_df",
+                "Download Data",
                 class_="btn-warning"
             )
         return None
@@ -86,8 +109,8 @@ def annotations_server(input, output, session, shared):
 
         if btn and not ui_initialized:
             dropdown = ui.input_select(
-                "h2_anno_1", 
-                "Select an Annotation", 
+                "h2_anno_1",
+                "Select an Annotation",
                 choices=shared['obs_names'].get()
             )
             ui.insert_ui(
@@ -97,8 +120,8 @@ def annotations_server(input, output, session, shared):
             )
 
             together_check = ui.input_checkbox(
-                "h2_together_check", 
-                "Plot Together", 
+                "h2_together_check",
+                "Plot Together",
                 value=True
             )
             ui.insert_ui(
@@ -120,18 +143,18 @@ def annotations_server(input, output, session, shared):
     def update_stack_type_dropdown():
         if input.h2_together_check():
             dropdown_together = ui.input_select(
-                "h2_together_drop", 
-                "Select Stack Type", 
-                choices=['stack', 'layer', 'dodge', 'fill'], 
+                "h2_together_drop",
+                "Select Stack Type",
+                choices=['stack', 'layer', 'dodge', 'fill'],
                 selected='stack'
             )
             ui.insert_ui(
                 ui.div({
-                    "id": "inserted-dropdown_together-1"}, 
+                    "id": "inserted-dropdown_together-1"},
                     dropdown_together
                 ),
                 selector="#main-h2_together_drop",
                 where="beforeEnd"
-            )      
+            )
         else:
             ui.remove_ui("#inserted-dropdown_together-1")

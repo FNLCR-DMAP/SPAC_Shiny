@@ -3,6 +3,7 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 import spac.visualization
+from utils.plot_utils import fig_to_png_bytes, png_bytes_to_figure
 
 
 def features_server(input, output, session, shared):
@@ -14,45 +15,87 @@ def features_server(input, output, session, shared):
     @render.plot
     @reactive.event(input.go_h1, ignore_none=True)
     def spac_Histogram_1():
-        adata = ad.AnnData(
-            X=shared['X_data'].get(), 
-            obs=pd.DataFrame(shared['obs_data'].get()), 
-            var=pd.DataFrame(shared['var_data'].get()), 
-            layers=shared['layers_data'].get(), 
-            dtype=shared['X_data'].get().dtype
-        )
-
-        if adata is None:
+        x_data = shared['X_data'].get()
+        if x_data is None:
             return None
 
-        feature = input.h1_feat()
-        rotation = input.feat_slider()
-        btn_log_x = input.h1_log_x()
-        btn_log_y = input.h1_log_y()
-        layer = on_layer_check()
+        cache = shared['cache']
+        version = shared['dataset_version'].get()
 
-        kwargs = {
-            "adata": adata,
-            "feature": feature,
-            "layer": layer,
-            "x_log_scale": btn_log_x,
-            "y_log_scale": btn_log_y,
+        is_grouped = input.h1_group_by_check()
+
+        try:
+            group_by = input.h1_anno() if is_grouped else None
+        except Exception:
+            group_by = None
+
+        try:
+            together = input.h1_together_check() if is_grouped else False
+        except Exception:
+            together = False
+
+        try:
+            multiple = (
+                input.h1_together_drop()
+                if (is_grouped and together)
+                else None
+            )
+        except Exception:
+            multiple = None
+
+        params = {
+            'feature': input.h1_feat(),
+            'layer': on_layer_check(),
+            'log_x': input.h1_log_x(),
+            'log_y': input.h1_log_y(),
+            'is_grouped': is_grouped,
+            'group_by': group_by,
+            'together': together,
+            'multiple': multiple,
+            'rotation': input.feat_slider(),
         }
 
-        if input.h1_group_by_check():
-            kwargs["group_by"] = input.h1_anno()
-            kwargs["together"] = input.h1_together_check()
-            if input.h1_together_check():
-                kwargs["multiple"] = input.h1_together_drop()
-        
-        fig1, ax, df = spac.visualization.histogram(**kwargs).values()
+        def compute():
+            adata = ad.AnnData(
+                X=x_data,
+                obs=pd.DataFrame(shared['obs_data'].get()),
+                var=pd.DataFrame(shared['var_data'].get()),
+                layers=shared['layers_data'].get(),
+                dtype=x_data.dtype
+            )
 
-        axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
-        for a in axes:
-            a.tick_params(axis='x', rotation=rotation, labelsize=10)
+            kwargs = {
+                "adata": adata,
+                "feature": params['feature'],
+                "layer": params['layer'],
+                "x_log_scale": params['log_x'],
+                "y_log_scale": params['log_y'],
+            }
+
+            if params['is_grouped']:
+                kwargs["group_by"] = params['group_by']
+                kwargs["together"] = params['together']
+                if params['together'] and params['multiple']:
+                    kwargs["multiple"] = params['multiple']
+
+            fig1, ax, df = spac.visualization.histogram(**kwargs).values()
+
+            axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
+            for a in axes:
+                a.tick_params(
+                    axis='x',
+                    rotation=params['rotation'],
+                    labelsize=10
+                )
+            return fig_to_png_bytes(fig1), df
+
+        img_bytes, df = cache.get_or_compute('histogram1', version, params, compute)
+
+        if img_bytes is None:
+            return None
 
         shared['df_histogram1'].set(df)
-        return fig1
+        return png_bytes_to_figure(img_bytes)
 
     histogram_ui_initialized = reactive.Value(False)
 
@@ -72,8 +115,8 @@ def features_server(input, output, session, shared):
     def download_histogram1_button_ui():
         if shared['df_histogram1'].get() is not None:
             return ui.download_button(
-                "download_histogram1_df", 
-                "Download Data", 
+                "download_histogram1_df",
+                "Download Data",
                 class_="btn-warning"
             )
         return None
@@ -86,8 +129,8 @@ def features_server(input, output, session, shared):
 
         if btn and not ui_initialized:
             dropdown = ui.input_select(
-                "h1_anno", 
-                "Select an Annotation", 
+                "h1_anno",
+                "Select an Annotation",
                 choices=shared['obs_names'].get()
             )
             ui.insert_ui(
@@ -97,8 +140,8 @@ def features_server(input, output, session, shared):
             )
 
             together_check = ui.input_checkbox(
-                "h1_together_check", 
-                "Plot Together", 
+                "h1_together_check",
+                "Plot Together",
                 value=True
             )
             ui.insert_ui(
@@ -121,17 +164,17 @@ def features_server(input, output, session, shared):
     def update_stack_type_dropdown():
         if input.h1_together_check():
             dropdown_together = ui.input_select(
-                "h1_together_drop", 
-                "Select Stack Type", 
-                choices=['stack', 'layer', 'dodge', 'fill'], 
+                "h1_together_drop",
+                "Select Stack Type",
+                choices=['stack', 'layer', 'dodge', 'fill'],
                 selected='stack'
             )
             ui.insert_ui(
                 ui.div(
-                    {"id": "inserted-dropdown_together"}, 
+                    {"id": "inserted-dropdown_together"},
                     dropdown_together
                 ),
                 selector="#main-h1_together_drop",
-                where="beforeEnd",)      
+                where="beforeEnd",)
         else:
             ui.remove_ui("#inserted-dropdown_together")

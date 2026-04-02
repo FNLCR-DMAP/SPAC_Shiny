@@ -32,6 +32,17 @@ def data_input_server(input, output, session, shared):
         print("Updating Parts")
         adata = shared['adata_main'].get()
         if adata is not None:
+            # Use isolate() to read dataset_version without registering a
+            # reactive dependency on it.  Without isolate(), setting the
+            # value below would re-invalidate this effect and cause an
+            # infinite loop (update_parts → set version → invalidate
+            # update_parts → set version → ...).
+            with reactive.isolate():
+                current_version = shared['dataset_version'].get()
+            new_version = current_version + 1
+            shared['dataset_version'].set(new_version)
+            shared['cache'].invalidate()
+            print(f"Dataset updated — version={new_version}, cache cleared")
 
             if hasattr(adata, 'X'):
                 shared['X_data'].set(adata.X)

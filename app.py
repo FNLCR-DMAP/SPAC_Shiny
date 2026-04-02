@@ -39,6 +39,7 @@ from server import (
 from utils.data_processing import load_data, read_html_file
 from utils.accessibility import accessible_navigation, apply_slider_accessibility_global
 from utils.security import apply_security_enhancements
+from utils.cache_manager import VisualizationCache
 
 
 # Read header and footer HTML content
@@ -91,6 +92,11 @@ def server(input, output, session):
     # Create a reactive variable for the main data
     adata_main = reactive.Value(preloaded_data)  # Initialize with preloaded data
 
+    # Incremented every time the dataset is replaced or subsetted.
+    # Including this in every cache key ensures old results are never
+    # returned after a dataset change.
+    dataset_version = reactive.Value(0)
+
     data_keys = [
         "X_data",
         "obs_data",  # AKA Annotations
@@ -118,6 +124,12 @@ def server(input, output, session):
         "preloaded_data": preloaded_data,  # Preloaded data for initial load
         "data_loaded": data_loaded,  # Reactive to track if data is loaded
         "adata_main": adata_main,  # Main anndata object
+        # Per-session visualization cache (LRU, max 50 entries).
+        # Keyed by (dataset_version, viz_name, normalized_params).
+        "cache": VisualizationCache(max_size=50),
+        # Monotonically increasing integer; incremented on every dataset
+        # load/subset so stale cache entries are never reused.
+        "dataset_version": dataset_version,
     }
 
     # Dynamically create the reactive values for parts of the anndata object

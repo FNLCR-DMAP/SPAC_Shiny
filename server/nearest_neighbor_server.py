@@ -6,6 +6,7 @@ neighbor distances using the visualize_nearest_neighbor_template functionality.
 """
 
 from shiny import ui, render, reactive, req
+from utils.plot_utils import fig_to_png_bytes, png_bytes_to_figure
 
 
 def nearest_neighbor_server(input, output, session, shared):
@@ -88,14 +89,14 @@ def nearest_neighbor_server(input, output, session, shared):
         """
         adata = get_adata()
         choices = {"None": "None (Auto)"}
-        
+
         if adata is not None:
             # Extract available color mappings from uns
             if hasattr(adata, 'uns') and adata.uns is not None:
                 for key in adata.uns.keys():
                     if key.endswith('_color_map') or 'color' in key.lower():
                         choices[key] = key
-        
+
         return ui.input_select(
             "nn_color_mapping",
             ui.tags.span(
@@ -127,47 +128,37 @@ def nearest_neighbor_server(input, output, session, shared):
         matplotlib.figure.Figure
             The generated plot figure
         """
-        # Get the AnnData object
         adata = get_adata()
         if adata is None:
             return None
 
-        # Prepare parameters for visualization
         source_label = input.nn_source_label()
-        target_labels = process_target_labels()
-        image_id = get_image_id()
-
-        # Validate inputs
         if not source_label:
             return None
 
         # Auto-detect annotation column matching spatial_distance phenotypes
         annotation = None
-        spatial_distance_key = "spatial_distance"  # Use hardcoded default
-        
-        # Check if spatial distance data is in obsm or uns
+        spatial_distance_key = "spatial_distance"
+
         distance_df = None
         if spatial_distance_key in adata.obsm:
             distance_df = adata.obsm[spatial_distance_key]
         elif spatial_distance_key in adata.uns:
             distance_df = adata.uns[spatial_distance_key]
-        
+
         if distance_df is not None and hasattr(distance_df, 'columns'):
             spatial_phenotypes = set(distance_df.columns)
-            
-            # Find annotation column that contains matching phenotypes
+
             for col in adata.obs.columns:
                 is_categorical = (adata.obs[col].dtype == 'object' or
                                   adata.obs[col].dtype.name == 'category')
                 if is_categorical:
                     obs_phenotypes = set(adata.obs[col].unique())
-                    # Check if there's significant overlap (80%+)
-                    overlap = spatial_phenotypes.intersection(
-                        obs_phenotypes)
+                    overlap = spatial_phenotypes.intersection(obs_phenotypes)
                     if len(overlap) >= len(spatial_phenotypes) * 0.8:
                         annotation = col
                         break
-            
+
             if annotation is None:
                 # Fallback: use the first categorical column
                 for col in adata.obs.columns:
@@ -180,77 +171,92 @@ def nearest_neighbor_server(input, output, session, shared):
         if not annotation:
             return None
 
-        try:
-            # Use memory registry to create virtual path for adata object
-            from utils.template_wrapper import (
-                register_memory_object,
-                unregister_memory_object
-            )
-            from spac.templates.visualize_nearest_neighbor_template import (
-                run_from_json
-            )
+        cache = shared['cache']
+        version = shared['dataset_version'].get()
 
-            # Register the adata object and get virtual path
-            virtual_path = register_memory_object(adata)
+        target_labels = process_target_labels()
+        image_id = get_image_id()
+        color_mapping = get_color_mapping()
+        font_size_val = input.nn_x_title_fontsize()
 
-            # Create parameter dictionary for run_from_json
-            params = {
-                "Upstream_Analysis": virtual_path,  # Use virtual path!
-                "Annotation": annotation,
-                "Source_Anchor_Cell_Label": source_label,
-                "Target_Cell_Label": (",".join(target_labels)
-                                      if target_labels else "All"),
-                "ImageID": image_id or "None",
-                "Plot_Method": input.nn_plot_method(),
-                "Plot_Type": get_plot_type(),
-                "Nearest_Neighbor_Associated_Table": "spatial_distance",
-                "Log_Scale": input.nn_log_scale(),
-                "Facet_Plot": input.nn_facet_plot(),
-                "X_Axis_Label_Rotation": input.nn_x_axis_rotation(),
-                "Shared_X_Axis_Title_": input.nn_shared_x_title(),
-                "X_Axis_Title_Font_Size": (input.nn_x_title_fontsize()
-                                           if input.nn_x_title_fontsize()
-                                           else "None"),
-                "Defined_Color_Mapping": get_color_mapping() or "None",
-                "Figure_Width": input.nn_figure_width(),
-                "Figure_Height": input.nn_figure_height(),
-                "Figure_DPI": input.nn_figure_dpi(),
-                "Font_Size": input.nn_font_size()
-            }
+        params = {
+            "Annotation": annotation,
+            "Source_Anchor_Cell_Label": source_label,
+            "Target_Cell_Label": (
+                tuple(target_labels) if target_labels else None
+            ),
+            "ImageID": image_id or "None",
+            "Plot_Method": input.nn_plot_method(),
+            "Plot_Type": get_plot_type(),
+            "Nearest_Neighbor_Associated_Table": "spatial_distance",
+            "Log_Scale": input.nn_log_scale(),
+            "Facet_Plot": input.nn_facet_plot(),
+            "X_Axis_Label_Rotation": input.nn_x_axis_rotation(),
+            "Shared_X_Axis_Title_": input.nn_shared_x_title(),
+            "X_Axis_Title_Font_Size": (
+                font_size_val if font_size_val else "None"
+            ),
+            "Defined_Color_Mapping": color_mapping or "None",
+            "Figure_Width": input.nn_figure_width(),
+            "Figure_Height": input.nn_figure_height(),
+            "Figure_DPI": input.nn_figure_dpi(),
+            "Font_Size": input.nn_font_size(),
+        }
 
+        def compute():
             try:
-                # Call run_from_json with virtual path
-                figs, df_data = run_from_json(
-                    json_path=params,
-                    save_results=False,  # Return figures directly
-                    show_plot=False
+                from utils.template_wrapper import (
+                    register_memory_object,
+                    unregister_memory_object
                 )
-            finally:
-                # Clean up the memory registry
-                unregister_memory_object(virtual_path)
+                from spac.templates.visualize_nearest_neighbor_template import (
+                    run_from_json
+                )
 
-            # Store the data for download
-            shared['df_nn'].set(df_data)
+                virtual_path = register_memory_object(adata)
 
-            # Handle both single figure and list of figures
-            if isinstance(figs, list):
-                if len(figs) > 0:
-                    fig = figs[0]
+                nn_params = {
+                    "Upstream_Analysis": virtual_path,
+                    **params,
+                    "Target_Cell_Label": (
+                        ",".join(params["Target_Cell_Label"])
+                        if params["Target_Cell_Label"] else "All"
+                    ),
+                }
+
+                try:
+                    figs, df_data = run_from_json(
+                        json_path=nn_params,
+                        save_results=False,
+                        show_plot=False
+                    )
+                finally:
+                    unregister_memory_object(virtual_path)
+
+                if isinstance(figs, list):
+                    fig = figs[0] if len(figs) > 0 else None
                 else:
-                    return None
-            else:
-                fig = figs
+                    fig = figs
 
-            if fig is None:
-                return None
+                if fig is None:
+                    return None, None
 
-            return fig
+                return fig_to_png_bytes(fig), df_data
 
-        except Exception:
-            # Log the error (in a production app, use proper logging)
-            import traceback
-            traceback.print_exc()
+            except Exception:
+                import traceback
+                traceback.print_exc()
+                return None, None
+
+        img_bytes, df = cache.get_or_compute(
+            'nearest_neighbor', version, params, compute
+        )
+
+        if img_bytes is None:
             return None
+
+        shared['df_nn'].set(df)
+        return png_bytes_to_figure(img_bytes)
 
     @render.download(filename="nearest_neighbor_data.csv")
     def download_df_nn():

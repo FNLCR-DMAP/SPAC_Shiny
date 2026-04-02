@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import logging
 import spac.visualization
-from utils.plot_utils import abbreviate_labels, apply_axis_style
+from utils.plot_utils import abbreviate_labels, apply_axis_style, fig_to_png_bytes, png_bytes_to_figure
 
 
 # Set up logger
@@ -111,79 +111,110 @@ def feat_vs_anno_server(input, output, session, shared):
         if adata is None:
             return None
 
-        vmin = input.hm1_min_select()
-        vmax = input.hm1_max_select()
-        kwargs = {"vmin": vmin, "vmax": vmax}
+        cache = shared['cache']
+        version = shared['dataset_version'].get()
+
         cluster_annotations, cluster_features = on_dendro_check()
+        enable_abbrev = input.hm1_enable_abbreviation()
 
-        # Error Handling: Catch and log specific errors
-        try:
-            df, fig, ax = spac.visualization.hierarchical_heatmap(
-                adata,
-                annotation=input.hm1_anno(),
-                layer=on_layer_check(),
-                z_score=None,
-                cluster_annotations=cluster_annotations,
-                cluster_feature=cluster_features,
-                **kwargs
+        params = {
+            'annotation': input.hm1_anno(),
+            'layer': on_layer_check(),
+            'vmin': input.hm1_min_select(),
+            'vmax': input.hm1_max_select(),
+            'cluster_annotations': cluster_annotations,
+            'cluster_features': cluster_features,
+            'cmap': input.hm1_cmap(),
+            'x_rotation': input.hm1_x_label_rotation(),
+            'y_rotation': input.hm1_y_label_rotation(),
+            'enable_abbrev': enable_abbrev,
+            'char_limit': (
+                input.hm1_label_char_limit() if enable_abbrev else None
+            ),
+            'axis_fontsize': input.hm1_axis_label_fontsize(),
+        }
+
+        def compute():
+            try:
+                df, fig, ax = spac.visualization.hierarchical_heatmap(
+                    adata,
+                    annotation=params['annotation'],
+                    layer=params['layer'],
+                    z_score=None,
+                    cluster_annotations=params['cluster_annotations'],
+                    cluster_feature=params['cluster_features'],
+                    vmin=params['vmin'],
+                    vmax=params['vmax'],
+                )
+            except ValueError as e:
+                logger.error(
+                    "Heatmap generation failed with invalid parameters: %s", e
+                )
+                return None, None
+            except Exception as e:
+                logger.error(
+                    "Unexpected error during heatmap generation: %s", e
+                )
+                return None, None
+
+            if fig is None or not hasattr(fig, "ax_heatmap"):
+                logger.error("Invalid figure structure.")
+                return None, None
+
+            # Apply colormap
+            cmap = params['cmap']
+            if cmap != "viridis":
+                fig.ax_heatmap.collections[0].set_cmap(cmap)
+
+            # Rotate axis labels
+            fig.ax_heatmap.set_xticklabels(
+                fig.ax_heatmap.get_xticklabels(),
+                rotation=params['x_rotation'],
+                horizontalalignment='right'
             )
-        except ValueError as e:
-            error_msg = ("Heatmap generation failed with invalid "
-                        f"parameters: {e}")
-            logger.error(error_msg)
-            return None
-        except Exception as e:
-            error_msg = ("Unexpected error during heatmap "
-                        f"generation: {e}")
-            logger.error(error_msg)
-            return None
+            fig.ax_heatmap.set_yticklabels(
+                fig.ax_heatmap.get_yticklabels(),
+                rotation=params['y_rotation'],
+                verticalalignment='center'
+            )
 
-        if fig is None or not hasattr(fig, "ax_heatmap"):
-            logger.error("Invalid figure structure.")
-            return None
+            # Abbreviate labels if enabled
+            if params['enable_abbrev']:
+                limit = params['char_limit']
+                abbreviated_xticks = abbreviate_labels(
+                    fig.ax_heatmap.get_xticklabels(), limit)
+                fig.ax_heatmap.set_xticklabels(
+                    abbreviated_xticks,
+                    rotation=params['x_rotation']
+                )
+                abbreviated_yticks = abbreviate_labels(
+                    fig.ax_heatmap.get_yticklabels(), limit)
+                fig.ax_heatmap.set_yticklabels(
+                    abbreviated_yticks,
+                    rotation=params['y_rotation']
+                )
 
-        # Apply colormap
-        cmap = input.hm1_cmap()
-        if cmap != "viridis":
-            fig.ax_heatmap.collections[0].set_cmap(cmap)
+            # Set font size for axis labels
+            axis_fontsize = params['axis_fontsize']
+            apply_axis_style(
+                fig.ax_heatmap.get_xticklabels(), axis_fontsize)
+            apply_axis_style(
+                fig.ax_heatmap.get_yticklabels(), axis_fontsize)
+
+            # Adjust figure layout
+            LAYOUT_RECT = (0.02, 0.02, 0.98, 0.98)
+            fig.fig.tight_layout(rect=LAYOUT_RECT)
+            fig.fig.subplots_adjust(bottom=0.15, left=0)
+
+            return fig_to_png_bytes(fig), df
+
+        img_bytes, df = cache.get_or_compute('heatmap', version, params, compute)
+
+        if img_bytes is None:
+            return None
 
         shared['df_heatmap'].set(df)
-
-        # Rotate X and Y axis labels
-        fig.ax_heatmap.set_xticklabels(
-            fig.ax_heatmap.get_xticklabels(),
-            rotation=input.hm1_x_label_rotation(),
-            horizontalalignment='right'
-        )
-        fig.ax_heatmap.set_yticklabels(
-            fig.ax_heatmap.get_yticklabels(),
-            rotation=input.hm1_y_label_rotation(),
-            verticalalignment='center'
-        )
-
-        # Abbreviate labels if enabled
-        if input.hm1_enable_abbreviation():
-            limit = input.hm1_label_char_limit()
-            abbreviated_xticks = abbreviate_labels(
-                fig.ax_heatmap.get_xticklabels(), limit)
-            fig.ax_heatmap.set_xticklabels(
-                abbreviated_xticks, rotation=input.hm1_x_label_rotation())
-            abbreviated_yticks = abbreviate_labels(
-                fig.ax_heatmap.get_yticklabels(), limit)
-            fig.ax_heatmap.set_yticklabels(
-                abbreviated_yticks, rotation=input.hm1_y_label_rotation())
-
-        # Set font size for axis labels
-        axis_fontsize = input.hm1_axis_label_fontsize()
-        apply_axis_style(fig.ax_heatmap.get_xticklabels(), axis_fontsize)
-        apply_axis_style(fig.ax_heatmap.get_yticklabels(), axis_fontsize)
-
-        # Adjust figure layout with small margins to prevent label clipping
-        # rect format: [left, bottom, right, top] as fraction of figure size
-        LAYOUT_RECT = (0.02, 0.02, 0.98, 0.98)
-        fig.fig.tight_layout(rect=LAYOUT_RECT)
-        fig.fig.subplots_adjust(bottom=0.15, left=0)
-        return fig
+        return png_bytes_to_figure(img_bytes)
 
     @render.download(filename="heatmap_data.csv")
     def download_df_hm1():

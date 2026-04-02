@@ -28,42 +28,54 @@ def boxplot_server(input, output, session, shared):
         """
         This function produces an interactive (Plotly) boxplot figure.
         """
-        # Only run this function if both conditions are met
-
         if not input.bp_output_type():
             return None
-        else: 
 
+        cache = shared['cache']
+        version = shared['dataset_version'].get()
+
+        params = {
+            'figure_type': 'interactive',
+            'annotation': on_anno_check(),
+            'layer': on_layer_check(),
+            'features': tuple(input.bp_features()),
+            'showfliers': on_outlier_check(),
+            'log_scale': input.bp_log_scale(),
+            'orient': on_orient_check(),
+        }
+
+        def compute():
             adata = ad.AnnData(
-                X=shared['X_data'].get(), 
-                obs=pd.DataFrame(shared['obs_data'].get()), 
-                var=pd.DataFrame(shared['var_data'].get()), 
-                layers=shared['layers_data'].get(), 
+                X=shared['X_data'].get(),
+                obs=pd.DataFrame(shared['obs_data'].get()),
+                var=pd.DataFrame(shared['var_data'].get()),
+                layers=shared['layers_data'].get(),
                 dtype=shared['X_data'].get().dtype
             )
+            if adata is None or adata.var is None:
+                return None, None
 
-            # Proceed only if adata is valid
-            if adata is not None and adata.var is not None:
+            fig, df = spac.visualization.boxplot_interactive(
+                adata,
+                annotation=params['annotation'],
+                layer=params['layer'],
+                features=list(params['features']),
+                showfliers=params['showfliers'],
+                log_scale=params['log_scale'],
+                orient=params['orient'],
+                figure_height=3,
+                figure_width=4.8,
+                figure_type="interactive"
+            ).values()
+            return fig, df
 
-                fig, df = spac.visualization.boxplot_interactive(
-                    adata, 
-                    annotation=on_anno_check(), 
-                    layer=on_layer_check(), 
-                    features=list(input.bp_features()),
-                    showfliers=on_outlier_check(),
-                    log_scale=input.bp_log_scale(),
-                    orient=on_orient_check(),
-                    figure_height=3, 
-                    figure_width=4.8, 
-                    figure_type="interactive"
-                ).values()
+        fig, df = cache.get_or_compute('boxplot_interactive', version, params, compute)
 
-                # Return the interactive Plotly figure object
-                shared['df_boxplot'].set(df)
-                print(type(fig))
-                return fig
+        if fig is None:
+            return None
 
-        return None
+        shared['df_boxplot'].set(df)
+        return fig
 
 
     @render.download(filename="boxplot_data.csv")
@@ -81,8 +93,8 @@ def boxplot_server(input, output, session, shared):
     def download_button_ui1():
         if shared['df_boxplot'].get() is not None:
             return ui.download_button(
-                "download_boxplot", 
-                "Download Data", 
+                "download_boxplot",
+                "Download Data",
                 class_="btn-warning"
             )
         return None
@@ -95,39 +107,51 @@ def boxplot_server(input, output, session, shared):
         """
         This function produces a static (Plotly) boxplot image.
         """
-
-         # Only run this function if both conditions are met
-
         if input.bp_output_type():
             return None
 
-        else: 
+        cache = shared['cache']
+        version = shared['dataset_version'].get()
 
+        params = {
+            'figure_type': 'static',
+            'annotation': on_anno_check(),
+            'layer': on_layer_check(),
+            'features': tuple(input.bp_features()),
+            'showfliers': on_outlier_check(),
+            'log_scale': input.bp_log_scale(),
+            'orient': on_orient_check(),
+        }
+
+        def compute():
             adata = ad.AnnData(
-                X=shared['X_data'].get(), 
-                obs=pd.DataFrame(shared['obs_data'].get()), 
-                var=pd.DataFrame(shared['var_data'].get()), 
-                layers=shared['layers_data'].get(), 
+                X=shared['X_data'].get(),
+                obs=pd.DataFrame(shared['obs_data'].get()),
+                var=pd.DataFrame(shared['var_data'].get()),
+                layers=shared['layers_data'].get(),
                 dtype=shared['X_data'].get().dtype
             )
+            if adata is None or adata.var is None:
+                return None, None
 
-            # Proceed only if adata is valid
-            if adata is not None and adata.var is not None:
-                
-                fig, df = spac.visualization.boxplot_interactive(
-                    adata, 
-                    annotation=on_anno_check(), 
-                    layer=on_layer_check(), 
-                    features=list(input.bp_features()),
-                    showfliers=on_outlier_check(),
-                    log_scale=input.bp_log_scale(),
-                    orient=on_orient_check(),
-                    figure_height=3, 
-                    figure_width=4.8, 
-                    figure_type="static"
-                ).values()
+            fig, df = spac.visualization.boxplot_interactive(
+                adata,
+                annotation=params['annotation'],
+                layer=params['layer'],
+                features=list(params['features']),
+                showfliers=params['showfliers'],
+                log_scale=params['log_scale'],
+                orient=params['orient'],
+                figure_height=3,
+                figure_width=4.8,
+                figure_type="static"
+            ).values()
+            return fig, df
 
-                return fig
+        fig, df = cache.get_or_compute('boxplot_static', version, params, compute)
 
-        return None
+        if fig is None:
+            return None
 
+        shared['df_boxplot'].set(df)
+        return fig
