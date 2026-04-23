@@ -41,13 +41,17 @@ build:
 run: build
 	@echo "Starting SPAC Shiny container..."
 	@echo "App will be available at: http://localhost:8001"
-	docker run -d --name spac-shiny-app -p 8001:8000 spac-shiny
-
+	docker run -d --name spac-shiny-app -p 8001:8000 \
+	  --add-host=host.docker.internal:host-gateway \
+	  spac-shiny
+# Run with development volume mount
 # Run with development volume mount
 run-dev: build
 	@echo "Starting SPAC Shiny container in development mode..."
 	@echo "App will be available at: http://localhost:8001"
-	docker run -d --name spac-shiny-app -p 8001:8000 -v $(PWD):/app spac-shiny
+	docker run -d --name spac-shiny-app -p 8001:8000 \
+	  --add-host=host.docker.internal:host-gateway \
+	  -v $(PWD):/app spac-shiny
 
 
 

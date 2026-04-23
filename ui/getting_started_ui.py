@@ -66,6 +66,26 @@ def getting_started_ui():
                 font-weight: 400 !important;
                 color: #6c757d !important;
             }
+            .fixed-button {
+                position: fixed;
+                bottom: 20px;
+                right: 15px;
+                z-index: 1000;
+                border-radius: 50%;
+                width: 60px;
+                height: 60px;
+                font-size: 15px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: linear-gradient(45deg, #17a2b8, #20c997);
+                transition: all 0.3s ease;
+                border: none;
+                outline: none;
+            }
+            .fixed-button:hover {
+                transform: scale(1.3);
+            }
         """),
 
         ui.div(
@@ -366,7 +386,6 @@ def getting_started_ui():
                     )
                 )
             ),
-
             # Footer
         )
     )

@@ -54,3 +54,4 @@ shapely==2.0.7
 sag-py-execution-time-decorator @ git+https://github.com/SamhammerAG/sag_py_execution_time_decorator.git@976c9683d561aadc0166495117c42cc1762633d7
 # SPAC package pinned to specific commit for template compatibility (dev branch as of 2025-10-15)
 spac @ git+https://github.com/FNLCR-DMAP/SCSAWorkflow.git@c2a248826b91880c62308e85e60cae9361c275d0#egg=spac
+ollama
