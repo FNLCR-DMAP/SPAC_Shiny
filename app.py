@@ -45,9 +45,7 @@ from utils.accessibility import accessible_navigation, apply_slider_accessibilit
 from utils.security import apply_security_enhancements
 
 
-# ---------------------------------------------------------------------------
-# Environment config
-# ---------------------------------------------------------------------------
+
 
 DATA_PATH       = os.getenv("DATA_PATH", "dev_example.pickle")
 OLLAMA_URL      = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
