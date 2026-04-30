@@ -6,7 +6,7 @@ from utils.template_wrapper import (
     register_memory_object,
     unregister_memory_object,
 )
-from spac.templates.visualize_ripley_template import run_from_json
+from spac.templates.visualize_ripley_l_template import run_from_json
 
 
 def ripleyL_server(input, output, session, shared):
