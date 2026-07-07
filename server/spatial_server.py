@@ -15,8 +15,8 @@ def spatial_server(input, output, session, shared):
 
         if btn and not ui_initialized:
             dropdown_slide = ui.input_select(
-                "slide_select_drop", 
-                "Select the Slide Annotation", 
+                "slide_select_drop",
+                "Select the Slide Annotation",
                 choices=shared['obs_names'].get())
             ui.insert_ui(
                 ui.div({"id": "inserted-slide_dropdown"}, dropdown_slide),
@@ -25,8 +25,8 @@ def spatial_server(input, output, session, shared):
             )
 
             dropdown_label = ui.input_select(
-                "slide_select_label", 
-                "Select a Slide", 
+                "slide_select_label",
+                "Select a Slide",
                 choices=[]
             )
             ui.insert_ui(
@@ -58,8 +58,8 @@ def spatial_server(input, output, session, shared):
 
         if btn and not ui_initialized:
             dropdown_region = ui.input_select(
-                "region_select_drop", 
-                "Select the Region Annotation", 
+                "region_select_drop",
+                "Select the Region Annotation",
                 choices=shared['obs_names'].get())
             ui.insert_ui(
                 ui.div({"id": "inserted-region_dropdown"}, dropdown_region),
@@ -68,13 +68,13 @@ def spatial_server(input, output, session, shared):
             )
 
             dropdown_label = ui.input_select(
-                "region_label_select", 
+                "region_label_select",
                 "Select a Region",
                 choices=[]
             )
             ui.insert_ui(
                 ui.div(
-                    {"id": "inserted-region_label_select_dropdown"}, 
+                    {"id": "inserted-region_label_select_dropdown"},
                     dropdown_label
                 ),
                 selector="#main-region_label_select_dropdown",
@@ -100,16 +100,16 @@ def spatial_server(input, output, session, shared):
     @reactive.event(input.go_sp1, ignore_none=True)
     def spac_Spatial():
         adata = ad.AnnData(
-            X=shared['X_data'].get(), 
-            var=pd.DataFrame(shared['var_data'].get()), 
-            obsm=shared['obsm_data'].get(), 
-            obs=shared['obs_data'].get(), 
-            dtype=shared['X_data'].get().dtype, 
+            X=shared['X_data'].get(),
+            var=pd.DataFrame(shared['var_data'].get()),
+            obsm=shared['obsm_data'].get(),
+            obs=shared['obs_data'].get(),
+            dtype=shared['X_data'].get().dtype,
             layers=shared['layers_data'].get()
         )
         slide_check = input.slide_select_check()
         region_check = input.region_select_check()
-        if adata is not None:
+        if adata:
             if slide_check is False and region_check is False:
                 adata_subset = adata
             elif slide_check is True and region_check is False:
@@ -139,7 +139,7 @@ def spatial_server(input, output, session, shared):
                 if "spatial_feat" not in input or input.spatial_feat() is None:
                     return None
                 layer = (
-                    None if input.spatial_layer() == "Original" 
+                    None if input.spatial_layer() == "Original"
                     else input.spatial_layer()
                 )
                 out = spac.visualization.interactive_spatial_plot(
@@ -163,29 +163,29 @@ def spatial_server(input, output, session, shared):
             else:
                 return None
             out[0]['image_object'].update_xaxes(
-                showticklabels=True, 
-                ticks="outside", 
-                tickwidth=2, 
+                showticklabels=True,
+                ticks="outside",
+                tickwidth=2,
                 ticklen=10
             )
             out[0]['image_object'].update_yaxes(
-                showticklabels=True, 
-                ticks="outside", 
-                tickwidth=2, 
+                showticklabels=True,
+                ticks="outside",
+                tickwidth=2,
                 ticklen=10
             )
             return out[0]['image_object']
 
         return None
 
-    #Track UI State 
+    #Track UI State
     spatial_annotation_initialized = reactive.Value(False)
     spatial_feature_initialized = reactive.Value(False)
-   
+
     @reactive.effect
     def spatial_reactivity():
         flipper = shared['data_loaded'].get()
-        if flipper is not False:
+        if flipper:
             btn = input.spatial_rb()
 
             if btn == "Annotation":
@@ -211,8 +211,8 @@ def spatial_server(input, output, session, shared):
             elif btn == "Feature":
                 if not spatial_feature_initialized.get():
                     dropdown = ui.input_select(
-                        "spatial_feat", 
-                        "Select a Feature", 
+                        "spatial_feat",
+                        "Select a Feature",
                         choices=shared['var_names'].get()
                     )
                     ui.insert_ui(
@@ -223,8 +223,8 @@ def spatial_server(input, output, session, shared):
                         where="beforeEnd"
                     )
                     table_select = ui.input_select(
-                        "spatial_layer", 
-                        "Select a Table", 
+                        "spatial_layer",
+                        "Select a Table",
                         choices=shared['layers_names'].get() + ["Original"],
                         selected="Original"
                     )

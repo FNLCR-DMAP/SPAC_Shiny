@@ -61,15 +61,14 @@ def umap_server(input, output, session, shared):
     @reactive.effect
     def umap_reactivity():
         flipper = shared['data_loaded'].get()
-        if flipper is not False:
+        if flipper:
             btn = input.umap_rb()
-
             if btn == "Annotation":
                 if not umap_annotation_initialized.get():
                     # Create the Annotation dropdown
                     dropdown = ui.input_select(
-                        "umap_rb_anno", 
-                        "Select an Annotation", 
+                        "umap_rb_anno",
+                        "Select an Annotation",
                         choices=shared['obs_names'].get(),
                     )
                     ui.insert_ui(
@@ -89,8 +88,8 @@ def umap_server(input, output, session, shared):
                 if not umap_feature_initialized.get():
                     # Create the Feature dropdown
                     dropdown1 = ui.input_select(
-                        "umap_rb_feat", 
-                        "Select a Feature", 
+                        "umap_rb_feat",
+                        "Select a Feature",
                         choices=shared['var_names'].get()
                     )
                     ui.insert_ui(
@@ -102,9 +101,9 @@ def umap_server(input, output, session, shared):
                     # Create the Table dropdown
                     new_choices = shared['layers_names'].get() + ["Original"]
                     table_umap = ui.input_select(
-                        "umap_layer", 
-                        "Select a Table", 
-                        choices=new_choices, 
+                        "umap_layer",
+                        "Select a Table",
+                        choices=new_choices,
                         selected=["Original"]
                     )
                     ui.insert_ui(
@@ -186,14 +185,14 @@ def umap_server(input, output, session, shared):
     @reactive.effect
     def umap_reactivity2():
         flipper = shared['data_loaded'].get()
-        if flipper is not False:
+        if flipper:
             btn = input.umap_rb2()
 
             if btn == "Annotation":
                 if not umap2_annotation_initialized.get():
                     dropdown = ui.input_select(
-                        "umap_rb_anno2", 
-                        "Select an Annotation", 
+                        "umap_rb_anno2",
+                        "Select an Annotation",
                         choices=shared['obs_names'].get()
                     )
                     ui.insert_ui(
@@ -210,8 +209,8 @@ def umap_server(input, output, session, shared):
             elif btn == "Feature":
                 if not umap2_feature_initialized.get():
                     dropdown1 = ui.input_select(
-                        "umap_rb_feat2", 
-                        "Select a Feature", 
+                        "umap_rb_feat2",
+                        "Select a Feature",
                         choices=shared['var_names'].get()
                     )
                     ui.insert_ui(

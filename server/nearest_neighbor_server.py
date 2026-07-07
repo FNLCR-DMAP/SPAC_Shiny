@@ -88,14 +88,14 @@ def nearest_neighbor_server(input, output, session, shared):
         """
         adata = get_adata()
         choices = {"None": "None (Auto)"}
-        
-        if adata is not None:
+
+        if adata:
             # Extract available color mappings from uns
             if hasattr(adata, 'uns') and adata.uns is not None:
                 for key in adata.uns.keys():
                     if key.endswith('_color_map') or 'color' in key.lower():
                         choices[key] = key
-        
+
         return ui.input_select(
             "nn_color_mapping",
             ui.tags.span(
@@ -144,21 +144,21 @@ def nearest_neighbor_server(input, output, session, shared):
         # Auto-detect annotation column matching spatial_distance phenotypes
         annotation = None
         spatial_distance_key = "spatial_distance"  # Use hardcoded default
-        
+
         # Check if spatial distance data is in obsm or uns
         distance_df = None
         if spatial_distance_key in adata.obsm:
             distance_df = adata.obsm[spatial_distance_key]
         elif spatial_distance_key in adata.uns:
             distance_df = adata.uns[spatial_distance_key]
-        
-        if distance_df is not None and hasattr(distance_df, 'columns'):
+
+        if distance_df and hasattr(distance_df, 'columns'):
             spatial_phenotypes = set(distance_df.columns)
-            
+
             # Find annotation column that contains matching phenotypes
             for col in adata.obs.columns:
                 is_categorical = (adata.obs[col].dtype == 'object' or
-                                  adata.obs[col].dtype.name == 'category')
+                                adata.obs[col].dtype.name == 'category')
                 if is_categorical:
                     obs_phenotypes = set(adata.obs[col].unique())
                     # Check if there's significant overlap (80%+)
@@ -167,7 +167,7 @@ def nearest_neighbor_server(input, output, session, shared):
                     if len(overlap) >= len(spatial_phenotypes) * 0.8:
                         annotation = col
                         break
-            
+
             if annotation is None:
                 # Fallback: use the first categorical column
                 for col in adata.obs.columns:
@@ -199,7 +199,7 @@ def nearest_neighbor_server(input, output, session, shared):
                 "Annotation": annotation,
                 "Source_Anchor_Cell_Label": source_label,
                 "Target_Cell_Label": (",".join(target_labels)
-                                      if target_labels else "All"),
+                                    if target_labels else "All"),
                 "ImageID": image_id or "None",
                 "Plot_Method": input.nn_plot_method(),
                 "Plot_Type": get_plot_type(),
@@ -209,8 +209,8 @@ def nearest_neighbor_server(input, output, session, shared):
                 "X_Axis_Label_Rotation": input.nn_x_axis_rotation(),
                 "Shared_X_Axis_Title_": input.nn_shared_x_title(),
                 "X_Axis_Title_Font_Size": (input.nn_x_title_fontsize()
-                                           if input.nn_x_title_fontsize()
-                                           else "None"),
+                                        if input.nn_x_title_fontsize()
+                                        else "None"),
                 "Defined_Color_Mapping": get_color_mapping() or "None",
                 "Figure_Width": input.nn_figure_width(),
                 "Figure_Height": input.nn_figure_height(),
@@ -263,7 +263,7 @@ def nearest_neighbor_server(input, output, session, shared):
             CSV bytes and content type
         """
         df = shared['df_nn'].get()
-        if df is not None:
+        if df:
             csv_string = df.to_csv(index=False)
             csv_bytes = csv_string.encode("utf-8")
             return csv_bytes, "text/csv"
@@ -280,7 +280,7 @@ def nearest_neighbor_server(input, output, session, shared):
         shiny.ui element or None
             Download button UI or None if no data
         """
-        if shared['df_nn'].get() is not None:
+        if shared['df_nn'].get():
             return ui.download_button(
                 "download_df_nn",
                 "Download Data",

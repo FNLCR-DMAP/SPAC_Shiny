@@ -116,6 +116,7 @@ def server(input, output, session):
 
     shared = {
         "preloaded_data": preloaded_data,  # Preloaded data for initial load
+        "preloaded_file_path": file_path,  # Path to preloaded file for filename extraction
         "data_loaded": data_loaded,  # Reactive to track if data is loaded
         "adata_main": adata_main,  # Main anndata object
     }
@@ -124,6 +125,11 @@ def server(input, output, session):
     # and add them to the shared dictionary
     for key in data_keys:
         shared[key] = reactive.Value(None)
+    
+    # Add reactive value for input filename
+    shared['input_filename'] = reactive.Value(None)
+    shared['boxplot_fig'] = reactive.Value(None)
+    shared['sankey_fig'] = reactive.Value(None)
 
     # Individual server components
     getting_started_server(input, output, session, shared)

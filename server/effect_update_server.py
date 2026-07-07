@@ -16,7 +16,7 @@ def effect_update_server(input, output, session, shared):
         choices = shared['var_names'].get()
         ui.update_select("h1_feat", choices=choices)
         ui.update_select("umap_feat", choices=choices)
-        if choices is not None:
+        if choices:
             ui.update_select("bp_features", choices=choices)
             ui.update_selectize("bp_features", selected=choices[:2])
 
@@ -24,14 +24,13 @@ def effect_update_server(input, output, session, shared):
     def update_select_input_anno():
         choices = shared['obs_names'].get()
         ui.update_select("bp_anno", choices=choices)
-        if choices is not None:
+        if choices:
             new_choices = choices + ["No Annotation"]
             ui.update_select("bp_anno", choices=new_choices)
         ui.update_select("h2_anno", choices=choices)
         ui.update_select("hm1_anno", choices=choices)
 
-        if choices is not None and len(choices) > 1:
-
+        if choices and len(choices) > 1:
             ui.update_select("sk1_anno1", choices=choices)
             ui.update_selectize("sk1_anno1", selected=choices[0])
             ui.update_select("sk1_anno2", choices=choices)
@@ -52,7 +51,7 @@ def effect_update_server(input, output, session, shared):
         # Get spatial_distance columns from shared state
         phenotype_choices = shared['spatial_distance_columns'].get()
 
-        if phenotype_choices is not None and len(phenotype_choices) > 0:
+        if phenotype_choices and len(phenotype_choices) > 0:
             # Update source label dropdown
             ui.update_select(
                 "nn_source_label",
@@ -78,7 +77,7 @@ def effect_update_server(input, output, session, shared):
 
     @reactive.Effect
     def update_select_input_layer():
-        if shared['layers_names'].get() is not None:
+        if shared['layers_names'].get():
             new_choices = shared['layers_names'].get() + ["Original"]
             ui.update_select("h1_layer", choices=new_choices)
             ui.update_select("bp_layer", choices=new_choices)
@@ -122,7 +121,7 @@ def effect_update_server(input, output, session, shared):
         if label_counts is None:
             return
 
-        if region_name is not None and region_name in label_counts:
+        if region_name and region_name in label_counts:
             # Use helper to fetch sorted labels for the region annotation
             from utils.data_processing import get_annotation_top_labels
 
@@ -161,7 +160,7 @@ def effect_update_server(input, output, session, shared):
         obsm = shared['obsm_names'].get()
         if not obsm:
             return "Associated Tables: None"
-        if obsm is not None:
+        if obsm:
             if len(obsm) > 1:
                 obsm_str = ", ".join(obsm)
             else:
@@ -234,7 +233,7 @@ def effect_update_server(input, output, session, shared):
         adata = shared['adata_main'].get()
         selected_anno = input.subset_anno_select()
 
-        if adata is not None and selected_anno:
+        if adata and selected_anno:
             labels = adata.obs[selected_anno].unique().tolist()
             print(f"Updating labels for {selected_anno}: {labels}")
             ui.update_selectize("subset_label_select", choices=labels)
@@ -243,7 +242,7 @@ def effect_update_server(input, output, session, shared):
     @reactive.event(input.go_subset, ignore_none=True)
     def subset_stratification():
         adata = shared['adata_main'].get()
-        if adata is not None:
+        if adata:
             annotation = input.subset_anno_select()
             labels = list(input.subset_label_select())
 
@@ -297,7 +296,7 @@ def effect_update_server(input, output, session, shared):
     def store_master_copy():
         """Store a master copy of the adata object when first loaded."""
         adata = shared['adata_main'].get()
-        if adata is not None and adata_master.get() is None:
+        if adata and adata_master.get() is None:
             # Make a copy of the adata object and store it as the master copy
             adata_master.set(adata.copy())
 
@@ -315,7 +314,7 @@ def effect_update_server(input, output, session, shared):
         Restore adata_main to the master copy stored in adata_master.
         """
         master_data = adata_master.get()
-        if master_data is not None:
+        if master_data:
             # Set adata_main to a copy of the master data to ensure
             # independence
             shared['adata_main'].set(master_data.copy())

@@ -83,8 +83,8 @@ def scatterplot_server(input, output, session, shared):
         if btn and not scatter_ui_initialized.get():
             # Insert the color selection dropdown if not already initialized
             dropdown = ui.input_select(
-                "scatter_color", 
-                "Select Feature", 
+                "scatter_color",
+                "Select Feature",
                 choices=shared['var_names'].get()
             )
             ui.insert_ui(
@@ -104,14 +104,14 @@ def scatterplot_server(input, output, session, shared):
         if selected_feature is None:
             return None
         adata = ad.AnnData(
-            X=shared['X_data'].get(), 
+            X=shared['X_data'].get(),
             var=pd.DataFrame(shared['var_data'].get())
         )
         if selected_feature in adata.var_names:
             column_index = adata.var_names.get_loc(selected_feature)
             color_values = adata.X[:, column_index]
             return color_values
-        return None 
+        return None
 
     @output
     @render.plot

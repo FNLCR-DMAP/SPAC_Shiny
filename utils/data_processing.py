@@ -3,8 +3,124 @@ SPAC Shiny App - Data Processing Module
 This module contains functions for loading and processing data for the SPAC Shiny app.
 """
 
+from pathlib import Path
+import logging
+import pickle
+
 import anndata as ad
 import pandas as pd
+
+logger = logging.getLogger(__name__)
+
+# Simple in-memory cache for loaded datasets
+_data_cache = {}
+
+
+def cached_load_data(file_path):
+    """
+    Load AnnData with caching to avoid repeated file I/O.
+    
+    This function caches loaded datasets in system RAM, providing
+    significant performance improvements when switching between
+    analysis modules or reloading the same dataset.
+    
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the data file (.h5ad, .pickle, or other AnnData format)
+        
+    Returns
+    -------
+    anndata.AnnData
+        Loaded AnnData object (cached if previously loaded)
+        
+    Notes
+    -----
+    Cache is stored in system RAM and persists until app restart.
+    Subsequent loads of the same file are nearly instant.
+    
+    Examples
+    --------
+    >>> adata = cached_load_data("data/sample.h5ad")
+    Loading data from data/sample.h5ad
+    >>> # Second call with same file - instant from cache
+    >>> adata = cached_load_data("data/sample.h5ad")
+    Retrieved data from cache: data/sample.h5ad
+    """
+    # Convert to absolute path for consistent cache keys
+    cache_key = str(Path(file_path).resolve())
+    
+    # Check cache first
+    if cache_key in _data_cache:
+        logger.info(f"Retrieved data from cache: {file_path}")
+        return _data_cache[cache_key]
+    
+    # Load data from file
+    logger.info(f"Loading data from {file_path}")
+    
+    with open(file_path, 'rb') as file:
+        if file_path.endswith('.pickle'):
+            adata = pickle.load(file)
+        elif file_path.endswith('.h5ad'):
+            adata = ad.read_h5ad(file_path)
+        else:
+            adata = ad.read(file_path)
+    
+    # Store in cache
+    _data_cache[cache_key] = adata
+    logger.info(
+        f"Cached data: {adata.n_obs} cells, "
+        f"{adata.n_vars} genes"
+    )
+    
+    return adata
+
+
+def clear_data_cache():
+    """
+    Clear the data cache to free system RAM.
+    
+    This removes all cached datasets from memory. Useful if you need
+    to free up RAM or reload data from disk.
+    
+    Examples
+    --------
+    >>> clear_data_cache()
+    Cleared data cache
+    """
+    global _data_cache
+    _data_cache.clear()
+    logger.info("Cleared data cache")
+
+
+def get_cache_info():
+    """
+    Get information about currently cached datasets.
+    
+    Returns
+    -------
+    dict
+        Dictionary with cache statistics including number of cached
+        files and total memory usage
+        
+    Examples
+    --------
+    >>> info = get_cache_info()
+    >>> print(f"Cached files: {info['num_files']}")
+    Cached files: 2
+    """
+    import sys
+    
+    total_size = sum(
+        sys.getsizeof(adata) 
+        for adata in _data_cache.values()
+    )
+    
+    return {
+        'num_files': len(_data_cache),
+        'cached_files': list(_data_cache.keys()),
+        'total_size_mb': total_size / (1024 * 1024)
+    }
 
 
 def read_html_file(filepath):

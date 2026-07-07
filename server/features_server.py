@@ -15,10 +15,10 @@ def features_server(input, output, session, shared):
     @reactive.event(input.go_h1, ignore_none=True)
     def spac_Histogram_1():
         adata = ad.AnnData(
-            X=shared['X_data'].get(), 
-            obs=pd.DataFrame(shared['obs_data'].get()), 
-            var=pd.DataFrame(shared['var_data'].get()), 
-            layers=shared['layers_data'].get(), 
+            X=shared['X_data'].get(),
+            obs=pd.DataFrame(shared['obs_data'].get()),
+            var=pd.DataFrame(shared['var_data'].get()),
+            layers=shared['layers_data'].get(),
             dtype=shared['X_data'].get().dtype
         )
 
@@ -44,7 +44,7 @@ def features_server(input, output, session, shared):
             kwargs["together"] = input.h1_together_check()
             if input.h1_together_check():
                 kwargs["multiple"] = input.h1_together_drop()
-        
+
         fig1, ax, df = spac.visualization.histogram(**kwargs).values()
 
         axes = ax if isinstance(ax, (list, np.ndarray)) else [ax]
@@ -59,8 +59,17 @@ def features_server(input, output, session, shared):
 
     @render.download(filename="features_histogram_data.csv")
     def download_histogram1_df():
+        """
+        Download the histogram data as a CSV file.
+
+        Returns
+        -------
+        tuple or None
+            A tuple containing the CSV bytes and the MIME type if data is available,
+            otherwise None.
+        """
         df = shared['df_histogram1'].get()
-        if df is not None:
+        if df is not None and not df.empty:
             csv_string = df.to_csv(index=False)
             csv_bytes = csv_string.encode("utf-8")
             return csv_bytes, "text/csv"
@@ -70,10 +79,19 @@ def features_server(input, output, session, shared):
     @render.ui
     @reactive.event(input.go_h1, ignore_none=True)
     def download_histogram1_button_ui():
-        if shared['df_histogram1'].get() is not None:
+        """
+        Render the download button for the histogram data.
+
+        Returns
+        -------
+        shiny.ui.Tag or None
+            The download button UI element if data is available, otherwise None.
+        """
+        df = shared['df_histogram1'].get()
+        if df is not None and not df.empty:
             return ui.download_button(
-                "download_histogram1_df", 
-                "Download Data", 
+                "download_histogram1_df",
+                "Download Data",
                 class_="btn-warning"
             )
         return None
@@ -86,8 +104,8 @@ def features_server(input, output, session, shared):
 
         if btn and not ui_initialized:
             dropdown = ui.input_select(
-                "h1_anno", 
-                "Select an Annotation", 
+                "h1_anno",
+                "Select an Annotation",
                 choices=shared['obs_names'].get()
             )
             ui.insert_ui(
@@ -97,8 +115,8 @@ def features_server(input, output, session, shared):
             )
 
             together_check = ui.input_checkbox(
-                "h1_together_check", 
-                "Plot Together", 
+                "h1_together_check",
+                "Plot Together",
                 value=True
             )
             ui.insert_ui(
@@ -121,17 +139,17 @@ def features_server(input, output, session, shared):
     def update_stack_type_dropdown():
         if input.h1_together_check():
             dropdown_together = ui.input_select(
-                "h1_together_drop", 
-                "Select Stack Type", 
-                choices=['stack', 'layer', 'dodge', 'fill'], 
+                "h1_together_drop",
+                "Select Stack Type",
+                choices=['stack', 'layer', 'dodge', 'fill'],
                 selected='stack'
             )
             ui.insert_ui(
                 ui.div(
-                    {"id": "inserted-dropdown_together"}, 
+                    {"id": "inserted-dropdown_together"},
                     dropdown_together
                 ),
                 selector="#main-h1_together_drop",
-                where="beforeEnd",)      
+                where="beforeEnd",)
         else:
             ui.remove_ui("#inserted-dropdown_together")
