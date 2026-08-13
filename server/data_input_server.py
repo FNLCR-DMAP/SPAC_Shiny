@@ -10,11 +10,11 @@ def data_input_server(input, output, session, shared):
         file_info = input.input_file()
         if not file_info:
             # Only set preloaded data if it exists
-            if shared['preloaded_data'] is not None:
+            if shared['preloaded_data'] is None:
+                shared['data_loaded'].set(False)
+            else:
                 shared['adata_main'].set(shared['preloaded_data'])
                 shared['data_loaded'].set(True)
-            else:
-                shared['data_loaded'].set(False)
         else:
             file_path = file_info[0]['datapath']
             with open(file_path, 'rb') as file:
@@ -31,71 +31,7 @@ def data_input_server(input, output, session, shared):
     def update_parts():
         print("Updating Parts")
         adata = shared['adata_main'].get()
-        if adata is not None:
-
-            if hasattr(adata, 'X'):
-                shared['X_data'].set(adata.X)
-            else:
-                shared['X_data'].set(None)
-
-            if hasattr(adata, 'obs'):
-                shared['obs_data'].set(adata.obs)
-            else:
-                shared['obs_data'].set(None)
-
-            if hasattr(adata, 'obsm'):
-                shared['obsm_data'].set(adata.obsm)
-            else:
-                shared['obsm_data'].set(None)
-
-            if hasattr(adata, 'layers'):
-                shared['layers_data'].set(adata.layers)
-            else:
-                shared['layers_data'].set(None)
-
-            if hasattr(adata, 'var'):
-                shared['var_data'].set(adata.var)
-            else:
-                shared['var_data'].set(None)
-
-            if hasattr(adata, 'uns'):
-                shared['uns_data'].set(adata.uns)
-            else:
-                shared['uns_data'].set(None)
-
-            shared['shape_data'].set(adata.shape)
-
-            if hasattr(adata, 'obs'):
-                shared['obs_names'].set(list(adata.obs.keys()))
-            else:
-                shared['obs_names'].set(None)
-
-            if hasattr(adata, 'obsm'):
-                shared['obsm_names'].set(list(adata.obsm.keys()))
-            else:
-                shared['obsm_names'].set(None)
-
-            if hasattr(adata, 'layers'):
-                shared['layers_names'].set(list(adata.layers.keys()))
-            else:
-                shared['layers_names'].set(None)
-
-            if hasattr(adata, 'var'):
-                shared['var_names'].set(list(adata.var.index.tolist()))
-            else:
-                shared['var_names'].set(None)
-
-            if hasattr(adata, 'uns'):
-                shared['uns_names'].set(list(adata.uns.keys()))
-            else:
-                shared['uns_names'].set(None)
-
-            # Extract spatial_distance column names if available via helper
-            from utils.data_processing import get_spatial_distance_columns
-
-            spatial_cols = get_spatial_distance_columns(adata)
-            shared['spatial_distance_columns'].set(spatial_cols)
-        else:
+        if adata is None:
             shared['obs_data'].set(None)
             shared['obsm_data'].set(None)
             shared['layers_data'].set(None)
@@ -109,6 +45,70 @@ def data_input_server(input, output, session, shared):
             shared['uns_names'].set(None)
             shared['spatial_distance_columns'].set(None)
 
+        else:
+           if hasattr(adata, 'X'):
+               shared['X_data'].set(adata.X)
+           else:
+               shared['X_data'].set(None)
+
+           if hasattr(adata, 'obs'):
+               shared['obs_data'].set(adata.obs)
+           else:
+               shared['obs_data'].set(None)
+
+           if hasattr(adata, 'obsm'):
+               shared['obsm_data'].set(adata.obsm)
+           else:
+               shared['obsm_data'].set(None)
+
+           if hasattr(adata, 'layers'):
+               shared['layers_data'].set(adata.layers)
+           else:
+               shared['layers_data'].set(None)
+
+           if hasattr(adata, 'var'):
+               shared['var_data'].set(adata.var)
+           else:
+               shared['var_data'].set(None)
+
+           if hasattr(adata, 'uns'):
+               shared['uns_data'].set(adata.uns)
+           else:
+               shared['uns_data'].set(None)
+
+           shared['shape_data'].set(adata.shape)
+
+           if hasattr(adata, 'obs'):
+               shared['obs_names'].set(list(adata.obs.keys()))
+           else:
+               shared['obs_names'].set(None)
+
+           if hasattr(adata, 'obsm'):
+               shared['obsm_names'].set(list(adata.obsm.keys()))
+           else:
+               shared['obsm_names'].set(None)
+
+           if hasattr(adata, 'layers'):
+               shared['layers_names'].set(list(adata.layers.keys()))
+           else:
+               shared['layers_names'].set(None)
+
+           if hasattr(adata, 'var'):
+               shared['var_names'].set(list(adata.var.index.tolist()))
+           else:
+               shared['var_names'].set(None)
+
+           if hasattr(adata, 'uns'):
+               shared['uns_names'].set(list(adata.uns.keys()))
+           else:
+               shared['uns_names'].set(None)
+
+           # Extract spatial_distance column names if available via helper
+           from utils.data_processing import get_spatial_distance_columns
+
+           spatial_cols = get_spatial_distance_columns(adata)
+           shared['spatial_distance_columns'].set(spatial_cols)
+
 
     @reactive.Calc
     @render.text
@@ -116,14 +116,14 @@ def data_input_server(input, output, session, shared):
         obs = shared['obs_names'].get()
         if not obs:
             return "Annotations: None"
-        if obs is not None:
-            if len(obs) > 1:
-                obs_str = ", ".join(obs)
-            else:
-                obs_str = obs[0] if obs else ""
-            return "Annotations: " + obs_str
-        else:
+        if obs is None:
             return "Empty"
+        else:
+             if len(obs) > 1:
+                 obs_str = ", ".join(obs)
+             else:
+                 obs_str = obs[0] if obs else ""
+             return "Annotations: " + obs_str
         return
 
     @reactive.Calc
@@ -132,14 +132,15 @@ def data_input_server(input, output, session, shared):
         obsm = shared['obsm_names'].get()
         if not obsm:
             return "Associated Tables: None"
-        if obsm is not None:
+        if obsm is None:
+            return "Empty"
+        else:
+
             if len(obsm) > 1:
                 obsm_str = ", ".join(obsm)
             else:
                 obsm_str = obsm[0] if obsm else ""
             return "Associated Tables: " + obsm_str
-        else:
-            return "Empty"
         return
 
     @reactive.Calc
@@ -163,7 +164,9 @@ def data_input_server(input, output, session, shared):
         uns = shared['uns_names'].get()
         if not uns:
             return "Unstructured Data: None"
-        if uns is not None:
+        if uns is None:
+            return
+        else:
             if len(uns) > 1:
                 uns_str = ", ".join(uns)
             else:
@@ -177,10 +180,10 @@ def data_input_server(input, output, session, shared):
         shape = shared['shape_data'].get()
         if not shape:
             return "None"
-        if shape is not None:
-            return str(shape[0])
-        else:
+        if shape is None:
             return "Empty"
+        else:
+            return str(shape[0])
         return
 
     @reactive.Calc
@@ -189,10 +192,10 @@ def data_input_server(input, output, session, shared):
         shape = shared['shape_data'].get()
         if not shape:
             return "None"
-        if shape is not None:
-            return  str(shape[1])
-        else:
+        if shape is None:
             return "Empty"
+        else:
+            return  str(shape[1])
         return
 
     # Formatted UI outputs for better display
@@ -203,7 +206,9 @@ def data_input_server(input, output, session, shared):
         obs = shared['obs_names'].get()
         if not obs:
             return ui.div("No annotations available", class_="text-muted")
-        if obs is not None and len(obs) > 0:
+        if obs is None:
+           return ui.div("No data loaded", class_="text-muted")
+        elif len(obs) > 0:
             items = [
                 ui.div(
                     ui.span("•", class_="metric-bullet"),
@@ -212,8 +217,6 @@ def data_input_server(input, output, session, shared):
                 ) for name in obs
             ]
             return ui.div(*items)
-        else:
-            return ui.div("No data loaded", class_="text-muted")
 
     @reactive.Calc
     @render.ui
@@ -222,7 +225,9 @@ def data_input_server(input, output, session, shared):
         obsm = shared['obsm_names'].get()
         if not obsm:
             return ui.div("No associated tables available", class_="text-muted")
-        if obsm is not None and len(obsm) > 0:
+        if obsm is None:
+            return ui.div("No data loaded", class_="text-muted")
+        elif len(obsm) > 0:
             items = [
                 ui.div(
                     ui.span("•", class_="metric-bullet"),
@@ -231,8 +236,6 @@ def data_input_server(input, output, session, shared):
                 ) for name in obsm
             ]
             return ui.div(*items)
-        else:
-            return ui.div("No data loaded", class_="text-muted")
 
     @reactive.Calc
     @render.ui
@@ -241,7 +244,8 @@ def data_input_server(input, output, session, shared):
         layers = shared['layers_names'].get()
         if not layers:
             return ui.div("No tables available", class_="text-muted")
-        if layers is not None and len(layers) > 0:
+        if layers is None:
+            return ui.div("No data loaded", class_="text-muted")
             items = [
                 ui.div(
                     ui.span("•", class_="metric-bullet"),
@@ -250,8 +254,15 @@ def data_input_server(input, output, session, shared):
                 ) for name in layers
             ]
             return ui.div(*items)
-        else:
-            return ui.div("No data loaded", class_="text-muted")
+        elif len(layers) > 0:
+            items = [
+                ui.div(
+                    ui.span("•", class_="metric-bullet"),
+                    ui.span(name, class_="metric-text"),
+                    class_="metric-item"
+                ) for name in layers
+            ]
+            return ui.div(*items)
 
     @reactive.Calc
     @render.ui
@@ -260,14 +271,14 @@ def data_input_server(input, output, session, shared):
         uns = shared['uns_names'].get()
         if not uns:
             return ui.div("No unstructured data available", class_="text-muted")
-        if uns is not None and len(uns) > 0:
-            items = [
-                ui.div(
-                    ui.span("•", class_="metric-bullet"),
-                    ui.span(name, class_="metric-text"),
-                    class_="metric-item"
-                ) for name in uns
-            ]
-            return ui.div(*items)
-        else:
+        if uns is None:
             return ui.div("No data loaded", class_="text-muted")
+        elif len(uns) > 0:
+           items = [
+               ui.div(
+                   ui.span("•", class_="metric-bullet"),
+                   ui.span(name, class_="metric-text"),
+                   class_="metric-item"
+               ) for name in uns
+           ]
+           return ui.div(*items)

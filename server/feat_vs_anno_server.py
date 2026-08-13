@@ -127,6 +127,53 @@ def feat_vs_anno_server(input, output, session, shared):
                 cluster_feature=cluster_features,
                 **kwargs
             )
+
+            if fig is None or not hasattr(fig, "ax_heatmap"):
+                logger.error("Invalid figure structure.")
+                return None
+
+            # Apply colormap
+            cmap = input.hm1_cmap()
+            if cmap != "viridis":
+                fig.ax_heatmap.collections[0].set_cmap(cmap)
+
+            shared['df_heatmap'].set(df)
+
+            # Rotate X and Y axis labels
+            fig.ax_heatmap.set_xticklabels(
+                fig.ax_heatmap.get_xticklabels(),
+                rotation=input.hm1_x_label_rotation(),
+                horizontalalignment='right'
+            )
+            fig.ax_heatmap.set_yticklabels(
+                fig.ax_heatmap.get_yticklabels(),
+                rotation=input.hm1_y_label_rotation(),
+                verticalalignment='center'
+            )
+
+            # Abbreviate labels if enabled
+            if input.hm1_enable_abbreviation():
+                limit = input.hm1_label_char_limit()
+                abbreviated_xticks = abbreviate_labels(
+                    fig.ax_heatmap.get_xticklabels(), limit)
+                fig.ax_heatmap.set_xticklabels(
+                    abbreviated_xticks, rotation=input.hm1_x_label_rotation())
+                abbreviated_yticks = abbreviate_labels(
+                    fig.ax_heatmap.get_yticklabels(), limit)
+                fig.ax_heatmap.set_yticklabels(
+                    abbreviated_yticks, rotation=input.hm1_y_label_rotation())
+
+            # Set font size for axis labels
+            axis_fontsize = input.hm1_axis_label_fontsize()
+            apply_axis_style(fig.ax_heatmap.get_xticklabels(), axis_fontsize)
+            apply_axis_style(fig.ax_heatmap.get_yticklabels(), axis_fontsize)
+
+            # Adjust figure layout with small margins to prevent label clipping
+            # rect format: [left, bottom, right, top] as fraction of figure size
+            LAYOUT_RECT = (0.02, 0.02, 0.98, 0.98)
+            fig.fig.tight_layout(rect=LAYOUT_RECT)
+            fig.fig.subplots_adjust(bottom=0.15, left=0)
+            return fig
         except ValueError as e:
             error_msg = ("Heatmap generation failed with invalid "
                         f"parameters: {e}")
@@ -138,61 +185,18 @@ def feat_vs_anno_server(input, output, session, shared):
             logger.error(error_msg)
             return None
 
-        if fig is None or not hasattr(fig, "ax_heatmap"):
-            logger.error("Invalid figure structure.")
-            return None
-
-        # Apply colormap
-        cmap = input.hm1_cmap()
-        if cmap != "viridis":
-            fig.ax_heatmap.collections[0].set_cmap(cmap)
-
-        shared['df_heatmap'].set(df)
-
-        # Rotate X and Y axis labels
-        fig.ax_heatmap.set_xticklabels(
-            fig.ax_heatmap.get_xticklabels(),
-            rotation=input.hm1_x_label_rotation(),
-            horizontalalignment='right'
-        )
-        fig.ax_heatmap.set_yticklabels(
-            fig.ax_heatmap.get_yticklabels(),
-            rotation=input.hm1_y_label_rotation(),
-            verticalalignment='center'
-        )
-
-        # Abbreviate labels if enabled
-        if input.hm1_enable_abbreviation():
-            limit = input.hm1_label_char_limit()
-            abbreviated_xticks = abbreviate_labels(
-                fig.ax_heatmap.get_xticklabels(), limit)
-            fig.ax_heatmap.set_xticklabels(
-                abbreviated_xticks, rotation=input.hm1_x_label_rotation())
-            abbreviated_yticks = abbreviate_labels(
-                fig.ax_heatmap.get_yticklabels(), limit)
-            fig.ax_heatmap.set_yticklabels(
-                abbreviated_yticks, rotation=input.hm1_y_label_rotation())
-
-        # Set font size for axis labels
-        axis_fontsize = input.hm1_axis_label_fontsize()
-        apply_axis_style(fig.ax_heatmap.get_xticklabels(), axis_fontsize)
-        apply_axis_style(fig.ax_heatmap.get_yticklabels(), axis_fontsize)
-
-        # Adjust figure layout with small margins to prevent label clipping
-        # rect format: [left, bottom, right, top] as fraction of figure size
-        LAYOUT_RECT = (0.02, 0.02, 0.98, 0.98)
-        fig.fig.tight_layout(rect=LAYOUT_RECT)
-        fig.fig.subplots_adjust(bottom=0.15, left=0)
-        return fig
-
     @render.download(filename="heatmap_data.csv")
     def download_df_hm1():
         df = shared['df_heatmap'].get()
-        if df is not None:
-            csv_string = df.to_csv(index=False)
-            csv_bytes = csv_string.encode("utf-8")
-            return csv_bytes, "text/csv"
-        return None
+        if df is None:
+            return None
+            
+        if df.empty:
+            return None
+
+        csv_string = df.to_csv(index=False)
+        csv_bytes = csv_string.encode("utf-8")
+        return csv_bytes, "text/csv"
 
     @render.ui
     @reactive.event(input.go_hm1, ignore_none=True)
