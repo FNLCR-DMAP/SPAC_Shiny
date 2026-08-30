@@ -96,6 +96,10 @@ def anno_vs_anno_ui():
                             "go_sk1",
                             "Generate Sankey Plot",
                             class_="btn-success"
+                        ),
+                        ui.div(
+                            {"style": "padding-top: 20px;"},
+                            ui.output_ui("download_button_ui_sankey")
                         )
                     ),
                     ui.column(
