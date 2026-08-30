@@ -3,6 +3,7 @@ import anndata as ad
 import numpy as np
 import pandas as pd
 import spac.visualization
+from utils.download_naming import build_download_filename
 
 
 def features_server(input, output, session, shared):
@@ -57,7 +58,12 @@ def features_server(input, output, session, shared):
     histogram_ui_initialized = reactive.Value(False)
 
 
-    @render.download(filename="features_histogram_data.csv")
+    def get_features_histogram_filename():
+        return build_download_filename(
+            shared, "features_histogram", mime_type="text/csv"
+        )
+
+    @render.download(filename=get_features_histogram_filename)
     def download_histogram1_df():
         df = shared['df_histogram1'].get()
         if df is not None:

@@ -3,6 +3,7 @@ from shinywidgets import render_widget
 import anndata as ad
 import pandas as pd
 import spac.visualization
+from utils.download_naming import build_download_filename
 
 
 def boxplot_server(input, output, session, shared):
@@ -66,7 +67,11 @@ def boxplot_server(input, output, session, shared):
         return None
 
 
-    @render.download(filename="boxplot_data.csv")
+    def get_boxplot_csv_filename():
+        """Generate dataset_boxplot CSV download filename."""
+        return build_download_filename(shared, "boxplot", mime_type="text/csv")
+
+    @render.download(filename=get_boxplot_csv_filename)
     def download_boxplot():
         df = shared['df_boxplot'].get()
         if df is not None:
@@ -74,7 +79,6 @@ def boxplot_server(input, output, session, shared):
             csv_bytes = csv_string.encode("utf-8")
             return csv_bytes, "text/csv"
         return None
-
 
     @render.ui
     @reactive.event(input.go_bp, ignore_none=True)

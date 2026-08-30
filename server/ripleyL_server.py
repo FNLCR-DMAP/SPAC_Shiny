@@ -1,6 +1,7 @@
 from shiny import ui, render, reactive
 import anndata as ad
 from typing import Tuple, Any
+from utils.download_naming import build_download_filename
 
 from utils.template_wrapper import (
     register_memory_object,
@@ -104,7 +105,10 @@ def ripleyL_server(input, output, session, shared):
                 # ignore cleanup errors
                 pass
 
-    @render.download(filename="ripley_plot_data.csv")
+    def get_ripley_filename():
+        return build_download_filename(shared, "ripley_plot", mime_type="text/csv")
+
+    @render.download(filename=get_ripley_filename)
     def download_df_rl():
         df = shared['df_ripley'].get()
         if df is not None:

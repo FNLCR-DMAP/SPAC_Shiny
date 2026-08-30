@@ -6,6 +6,7 @@ neighbor distances using the visualize_nearest_neighbor_template functionality.
 """
 
 from shiny import ui, render, reactive, req
+from utils.download_naming import build_download_filename
 
 
 def nearest_neighbor_server(input, output, session, shared):
@@ -252,7 +253,12 @@ def nearest_neighbor_server(input, output, session, shared):
             traceback.print_exc()
             return None
 
-    @render.download(filename="nearest_neighbor_data.csv")
+    def get_nearest_neighbor_filename():
+        return build_download_filename(
+            shared, "nearest_neighbor", mime_type="text/csv"
+        )
+
+    @render.download(filename=get_nearest_neighbor_filename)
     def download_df_nn():
         """
         Download the nearest neighbor data as CSV.

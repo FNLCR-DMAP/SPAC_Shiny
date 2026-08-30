@@ -1,6 +1,22 @@
+import os
+import re
+
 from shiny import render, reactive
 import pickle
 import anndata as ad
+
+
+def sanitize_filename(filename):
+    """Extract base filename and sanitize it for use in download names."""
+    # Remove path and extension
+    base_name = os.path.splitext(os.path.basename(filename))[0]
+    # Replace spaces and special characters with underscores
+    sanitized = re.sub(r'[^a-zA-Z0-9_-]', '_', base_name)
+    # Remove multiple consecutive underscores
+    sanitized = re.sub(r'_+', '_', sanitized)
+    # Remove leading/trailing underscores
+    sanitized = sanitized.strip('_')
+    return sanitized
 
 
 def data_input_server(input, output, session, shared):
@@ -13,10 +29,18 @@ def data_input_server(input, output, session, shared):
             if shared['preloaded_data'] is not None:
                 shared['adata_main'].set(shared['preloaded_data'])
                 shared['data_loaded'].set(True)
+                # Extract filename from preloaded file path
+                preloaded_path = shared.get('preloaded_file_path', 'dev_example.pickle')
+                filename = sanitize_filename(preloaded_path)
+                shared['input_filename'].set(filename)
             else:
                 shared['data_loaded'].set(False)
+                shared['input_filename'].set(None)
         else:
             file_path = file_info[0]['datapath']
+            # Extract and store filename
+            filename = sanitize_filename(file_path)
+            shared['input_filename'].set(filename)
             with open(file_path, 'rb') as file:
                 if file_path.endswith('.pickle'):
                     shared['adata_main'].set(pickle.load(file))

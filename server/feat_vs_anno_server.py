@@ -13,6 +13,7 @@ import pandas as pd
 import logging
 import spac.visualization
 from utils.plot_utils import abbreviate_labels, apply_axis_style
+from utils.download_naming import build_download_filename
 
 
 # Set up logger
@@ -185,7 +186,10 @@ def feat_vs_anno_server(input, output, session, shared):
         fig.fig.subplots_adjust(bottom=0.15, left=0)
         return fig
 
-    @render.download(filename="heatmap_data.csv")
+    def get_heatmap_filename():
+        return build_download_filename(shared, "heatmap", mime_type="text/csv")
+
+    @render.download(filename=get_heatmap_filename)
     def download_df_hm1():
         df = shared['df_heatmap'].get()
         if df is not None:

@@ -3,6 +3,7 @@ from shinywidgets import render_widget
 import anndata as ad
 import pandas as pd
 import spac.visualization
+from utils.download_naming import build_download_filename
 
 def anno_vs_anno_server(input, output, session, shared):
 
@@ -43,7 +44,10 @@ def anno_vs_anno_server(input, output, session, shared):
             return result['figure']
         return None
 
-    @render.download(filename="relational_data.csv")
+    def get_relational_filename():
+        return build_download_filename(shared, "relational", mime_type="text/csv")
+
+    @render.download(filename=get_relational_filename)
     def download_df_1():
         df = shared['df_relational'].get()
         if df is not None:

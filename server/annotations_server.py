@@ -1,6 +1,7 @@
 from shiny import ui, render, reactive
 import numpy as np
 import spac.visualization
+from utils.download_naming import build_download_filename
 
 def annotations_server(input, output, session, shared):
     @output
@@ -68,7 +69,12 @@ def annotations_server(input, output, session, shared):
         return None
 
 
-    @render.download(filename="annotation_histogram_data.csv")
+    def get_annotation_histogram_filename():
+        return build_download_filename(
+            shared, "annotation_histogram", mime_type="text/csv"
+        )
+
+    @render.download(filename=get_annotation_histogram_filename)
     def download_histogram2_df():
         df = shared['df_histogram2'].get()
         if df is not None:
