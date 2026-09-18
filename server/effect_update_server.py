@@ -8,9 +8,56 @@ from shiny import ui, render, reactive
 from utils.data_processing import get_annotation_label_counts
 import anndata as ad
 import spac.data_utils
+import numpy as np
 
 
 def effect_update_server(input, output, session, shared):
+    def _extract_feature_values(adata, feature_name, layer_name):
+        """Return 1D numeric values for a selected feature from X/layer."""
+        if adata is None or feature_name is None:
+            return None
+        if feature_name not in adata.var_names:
+            return None
+
+        source = adata.X if layer_name == "Original" else adata.layers.get(layer_name)
+        if source is None:
+            return None
+
+        try:
+            col_idx = int(adata.var_names.get_loc(feature_name))
+            values = source[:, col_idx]
+            if hasattr(values, "toarray"):
+                values = values.toarray().ravel()
+            else:
+                values = np.asarray(values).ravel()
+            return values
+        except Exception:
+            return None
+
+    def _update_umap_value_range_inputs(val_min_id, val_max_id, values):
+        """Update min/max numeric inputs using finite data bounds."""
+        if values is None:
+            return
+        finite = values[np.isfinite(values)]
+        if finite.size == 0:
+            return
+
+        min_val = round(float(np.min(finite)), 4)
+        max_val = round(float(np.max(finite)), 4)
+
+        ui.update_numeric(
+            val_min_id,
+            value=min_val,
+            min=min_val,
+            max=max_val,
+        )
+        ui.update_numeric(
+            val_max_id,
+            value=max_val,
+            min=min_val,
+            max=max_val,
+        )
+
     @reactive.Effect
     def update_select_input_feat():
         choices = shared['var_names'].get()
@@ -86,6 +133,30 @@ def effect_update_server(input, output, session, shared):
             ui.update_select("hm1_layer", choices=new_choices)
             ui.update_select("scatter_layer", choices=new_choices)
         return
+
+    @reactive.Effect
+    def update_umap_min_max_panel1():
+        adata = shared['adata_main'].get()
+        mode = input.umap_rb()
+        feature = input.umap_rb_feat()
+        layer = input.umap_layer()
+        if mode != "Feature" or feature is None or layer is None:
+            return
+
+        values = _extract_feature_values(adata, feature, layer)
+        _update_umap_value_range_inputs("umap_val_min", "umap_val_max", values)
+
+    @reactive.Effect
+    def update_umap_min_max_panel2():
+        adata = shared['adata_main'].get()
+        mode = input.umap_rb2()
+        feature = input.umap_rb_feat2()
+        layer = input.umap_layer2()
+        if mode != "Feature" or feature is None or layer is None:
+            return
+
+        values = _extract_feature_values(adata, feature, layer)
+        _update_umap_value_range_inputs("umap_val_min2", "umap_val_max2", values)
 
     @reactive.Effect
     def update_rl_pairs():
