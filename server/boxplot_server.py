@@ -60,6 +60,7 @@ def boxplot_server(input, output, session, shared):
 
                 # Return the interactive Plotly figure object
                 shared['df_boxplot'].set(df)
+                shared['boxplot_fig'].set(fig)  # Store figure for HTML download
                 print(type(fig))
                 return fig
 
@@ -75,17 +76,41 @@ def boxplot_server(input, output, session, shared):
             return csv_bytes, "text/csv"
         return None
 
+    @render.download(filename="boxplot.html")
+    def download_boxplot_html():
+        fig = shared['boxplot_fig'].get()
+        if fig is None:
+            return None
+        html_string = fig.to_html(include_plotlyjs='cdn')
+        html_bytes = html_string.encode("utf-8")
+        return html_bytes, "text/html"
+
 
     @render.ui
     @reactive.event(input.go_bp, ignore_none=True)
     def download_button_ui1():
         if shared['df_boxplot'].get() is not None:
-            return ui.download_button(
-                "download_boxplot", 
-                "Download Data", 
+            return ui.input_action_button(
+                "show_download_modal_bp",
+                "Download Data",
                 class_="btn-warning"
             )
         return None
+
+    @reactive.Effect
+    @reactive.event(input.show_download_modal_bp)
+    def show_download_modal():
+        m = ui.modal(
+            ui.div(
+                ui.download_button("download_boxplot", "CSV", class_="btn-primary me-2"),
+                ui.download_button("download_boxplot_html", "HTML", class_="btn-primary"),
+                style="display: flex; gap: 10px; justify-content: center;"
+            ),
+            title="Select a Format:",
+            easy_close=True,
+            footer=None
+        )
+        ui.modal_show(m)
 
 
     @output

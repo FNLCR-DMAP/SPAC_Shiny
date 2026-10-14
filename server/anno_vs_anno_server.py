@@ -22,6 +22,7 @@ def anno_vs_anno_server(input, output, session, shared):
                 source_annotation=input.sk1_anno1(), 
                 target_annotation=input.sk1_anno2()
             )
+            shared['sankey_fig'].set(fig)  # Store figure for HTML download
             return fig
         return None
 
@@ -58,3 +59,37 @@ def anno_vs_anno_server(input, output, session, shared):
         if shared['df_relational'].get() is not None:
             return ui.download_button("download_df_1", "Download Data", class_="btn-warning")
         return None
+
+    @render.download(filename="sankey.html")
+    def download_sankey_html():
+        fig = shared['sankey_fig'].get()
+        if fig is None:
+            return None
+        html_string = fig.to_html(include_plotlyjs='cdn')
+        html_bytes = html_string.encode("utf-8")
+        return html_bytes, "text/html"
+
+    @render.ui
+    @reactive.event(input.go_sk1, ignore_none=True)
+    def download_button_ui_sankey():
+        if shared['sankey_fig'].get() is None:
+            return None
+        return ui.input_action_button(
+            "show_download_modal_sankey",
+            "Download Data",
+            class_="btn-warning"
+        )
+
+    @reactive.Effect
+    @reactive.event(input.show_download_modal_sankey)
+    def show_download_modal_sankey():
+        m = ui.modal(
+            ui.div(
+                ui.download_button("download_sankey_html", "HTML", class_="btn-primary"),
+                style="display: flex; gap: 10px; justify-content: center;"
+            ),
+            title="Select a Format:",
+            easy_close=True,
+            footer=None
+        )
+        ui.modal_show(m)

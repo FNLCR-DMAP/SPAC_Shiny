@@ -124,6 +124,9 @@ def server(input, output, session):
     # and add them to the shared dictionary
     for key in data_keys:
         shared[key] = reactive.Value(None)
+    
+    shared['boxplot_fig'] = reactive.Value(None)
+    shared['sankey_fig'] = reactive.Value(None)
 
     # Individual server components
     getting_started_server(input, output, session, shared)
