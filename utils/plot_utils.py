@@ -8,12 +8,11 @@ formatting plot labels.
 import io
 from typing import List
 
-import matplotlib.pyplot as plt
 from matplotlib.text import Text
 
 
 def fig_to_png_bytes(fig) -> bytes:
-    """Serialize a figure to PNG bytes and close it.
+    """Serialize a figure to PNG bytes.
 
     Tight export includes titles and legends outside the original canvas.
     The figure's plot geometry and configured DPI are preserved, but exported
@@ -31,17 +30,14 @@ def fig_to_png_bytes(fig) -> bytes:
     """
 
     underlying = fig.fig if hasattr(fig, "fig") else fig
-    try:
-        with io.BytesIO() as buffer:
-            underlying.savefig(
-                buffer,
-                format="png",
-                dpi=underlying.get_dpi(),
-                bbox_inches="tight",
-            )
-            return buffer.getvalue()
-    finally:
-        plt.close(underlying)
+    with io.BytesIO() as buffer:
+        underlying.savefig(
+            buffer,
+            format="png",
+            dpi=underlying.get_dpi(),
+            bbox_inches="tight",
+        )
+        return buffer.getvalue()
 
 
 def abbreviate_labels(labels: List[Text], limit: int) -> List[str]:
