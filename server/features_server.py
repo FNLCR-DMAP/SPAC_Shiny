@@ -7,6 +7,7 @@ through the standard SPAC Histogram template workflow.
 
 import tempfile
 
+import matplotlib.pyplot as plt
 from shiny import ui, render, reactive
 
 # Import plot display utilities.
@@ -105,7 +106,10 @@ def features_server(input, output, session, shared):
         finally:
             unregister_memory_object(virtual_path)
 
-        png_bytes = fig_to_png_bytes(fig)
+        try:
+            png_bytes = fig_to_png_bytes(fig)
+        finally:
+            plt.close(fig)
         with tempfile.NamedTemporaryFile(
             prefix="spac_feature_histogram_",
             suffix=".png",
